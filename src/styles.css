@@ -285,6 +285,17 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .guide-stage-label { margin-top: 12px; color: var(--violet); font-size: 9px; }
 .chart-preview { display: grid; justify-items: center; gap: 14px; width: 100%; }.chart-preview > span { color: #777e89; font-size: 10px; }.chart-preview > div { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; width: min(620px,100%); }.chart-preview b { display: grid; place-items: center; padding: 13px; border: 1px solid var(--line); border-radius: 9px; font: 700 18px 'Manrope'; }.chart-preview > strong { color: var(--cyan); font: 800 55px 'Manrope'; }
 .panel textarea { width: 100%; min-height: 70px; margin-top: 9px; padding: 8px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; color: #d8dce0; background: #0d0f13; font-size: 10px; }
+.routing-panel { display: grid; gap: 7px; }
+.routing-panel .field-label { margin-top: 2px; }
+.routing-panel .range-label { margin-top: 2px; }
+.routing-status { padding: 3px 6px; border-radius: 999px; color: #7d848f; background: #1a1d24; font-size: 7px; }
+.routing-status.online { color: var(--green); background: rgba(100,221,160,.09); }
+.output-test { width: 100%; padding: 7px; font-size: 8px; }
+.routing-warning { padding: 7px 8px; border: 1px solid rgba(255,111,116,.25); border-radius: 7px; color: #ffc0c2; background: rgba(255,111,116,.07); font-size: 8px; line-height: 1.5; }
+.studio-guide { border-top: 1px solid var(--line); padding-top: 7px; color: #858c96; font-size: 8px; line-height: 1.55; }
+.studio-guide summary { color: #b5bbc3; cursor: pointer; }
+.studio-guide ol { margin: 8px 0; padding-left: 18px; }
+.studio-guide strong { display: block; color: var(--cyan); font-weight: 600; }
 
 .focus-exit { position: fixed; top: 13px; right: 16px; z-index: 20; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #7c838e; background: #111318; font-size: 9px; cursor: pointer; }
 .focus-mode { grid-template-columns: 1fr; }

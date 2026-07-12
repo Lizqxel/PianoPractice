@@ -40,6 +40,13 @@ export function totalVoiceMovement(previous: readonly number[], next: readonly n
   return next.reduce((sum, note) => sum + Math.min(...previous.map((prior) => Math.abs(note - prior))), 0);
 }
 
+export function sameMidiNotes(played: readonly number[], expected: readonly number[]): boolean {
+  if (played.length !== expected.length) return false;
+  const left = [...played].sort((a, b) => a - b);
+  const right = [...expected].sort((a, b) => a - b);
+  return left.every((note, index) => note === right[index]);
+}
+
 export function bestInversion(previous: readonly number[], target: ChordTarget): { inversion: InversionIndex; notes: number[]; movement: number } {
   const candidates = ([0, 1, 2] as InversionIndex[]).map((inversion) => {
     const notes = recommendedVoicing(target, inversion);

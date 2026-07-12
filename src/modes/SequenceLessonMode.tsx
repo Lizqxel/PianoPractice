@@ -20,11 +20,13 @@ interface Props {
   onComplete: (result: DailySessionResult) => void;
   onSessionStart: () => void;
   metronomeVolume: number;
+  onAllNotesOff?: () => void;
+  fixedSightLength?: number;
 }
 
-export function SequenceLessonMode({ kind, definition, notes, audio, bpm, onBpmChange, onGuideChange, onComplete, onSessionStart, metronomeVolume }: Props) {
+export function SequenceLessonMode({ kind, definition, notes, audio, bpm, onBpmChange, onGuideChange, onComplete, onSessionStart, metronomeVolume, onAllNotesOff, fixedSightLength }: Props) {
   const [chartText, setChartText] = useState<string>(SAMPLES[0]);
-  const [sightChart] = useState(() => generateSightChart(8 + Math.floor(Math.random() * 9)));
+  const [sightChart] = useState(() => generateSightChart(fixedSightLength ?? 8 + Math.floor(Math.random() * 9)));
   const [guideEnabled, setGuideEnabled] = useState(true);
   const [practiceSight, setPracticeSight] = useState(true);
   const [preview, setPreview] = useState(kind === 'sightReading' ? 10 : 0);
@@ -74,6 +76,7 @@ export function SequenceLessonMode({ kind, definition, notes, audio, bpm, onBpmC
     if (completed.current) return;
     completed.current = true;
     scheduler.current?.stop();
+    onAllNotesOff?.();
     setRunning(false);
     const accuracy = Math.round((successes.current / Math.max(1, sequence.length)) * 100);
     const averageMs = delays.current.length ? Math.round(delays.current.reduce((sum, value) => sum + value, 0) / delays.current.length) : 0;

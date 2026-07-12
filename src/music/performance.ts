@@ -14,6 +14,7 @@ export function recordAttempt(
   const id = targetId(target);
   const existing = records.find((record) => record.id === id);
   const updated: ChordPerformanceRecord = {
+    ...existing,
     id,
     target,
     attempts: (existing?.attempts ?? 0) + 1,
@@ -55,6 +56,16 @@ export function learningSummary(records: readonly ChordPerformanceRecord[]): { m
     learning: records.filter((record) => !record.mastered && record.attempts > 0).length,
     weak: extractWeakTargets(records),
   };
+}
+
+export function isLearningRecordMastered(record: ChordPerformanceRecord | undefined): boolean {
+  if (!record || !record.mastered || (record.unguidedCorrect ?? 0) < 2) return false;
+  const recent = record.recentResults ?? [];
+  return recent.length > 0 && recent.filter(Boolean).length / recent.length >= 0.8;
+}
+
+export function areTargetsMastered(targets: readonly ChordTarget[], records: readonly ChordPerformanceRecord[]): boolean {
+  return targets.every((target) => isLearningRecordMastered(records.find((record) => record.id === targetId(target))));
 }
 
 export function performanceAccuracy(record: ChordPerformanceRecord): number {

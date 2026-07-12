@@ -9,15 +9,16 @@ interface MetronomeProps {
   onRunningChange: (running: boolean) => void;
   volume: number;
   onVolumeChange: (volume: number) => void;
+  enabled: boolean;
 }
 
-export function Metronome({ audio, bpm, onBpmChange, running, onRunningChange, volume, onVolumeChange }: MetronomeProps) {
+export function Metronome({ audio, bpm, onBpmChange, running, onRunningChange, volume, onVolumeChange, enabled }: MetronomeProps) {
   const [countIn, setCountIn] = useState(true);
   const [beat, setBeat] = useState(0);
   const countRef = useRef(0);
 
   useEffect(() => {
-    if (!running) return undefined;
+    if (!running || !enabled) return undefined;
     countRef.current = countIn ? -4 : 0;
     const tick = () => {
       const value = countRef.current;
@@ -28,7 +29,7 @@ export function Metronome({ audio, bpm, onBpmChange, running, onRunningChange, v
     tick();
     const timer = window.setInterval(tick, 60_000 / bpm);
     return () => window.clearInterval(timer);
-  }, [audio, bpm, countIn, running, volume]);
+  }, [audio, bpm, countIn, enabled, running, volume]);
 
   return (
     <section className="utility-card metronome" aria-label="メトロノーム">
@@ -37,7 +38,7 @@ export function Metronome({ audio, bpm, onBpmChange, running, onRunningChange, v
         <button className={`icon-toggle ${running ? 'active' : ''}`} type="button" onClick={() => {
           if (running) onRunningChange(false);
           else void audio.resume().then(() => onRunningChange(true));
-        }} aria-label={running ? '停止' : '開始'}>
+        }} aria-label={running ? '停止' : '開始'} disabled={!enabled}>
           {running ? '■' : '▶'}
         </button>
       </div>
