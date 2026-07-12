@@ -9,9 +9,15 @@ export class AudioEngine {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private voices = new Map<number, Voice>();
+  private scheduledClicks = new Set<OscillatorNode>();
   private volume = 0.35;
   private muted = false;
   readonly maxVoices = 16;
+
+  get currentTime(): number {
+    if (this.context?.state === 'running') return this.context.currentTime;
+    return (typeof performance === 'undefined' ? Date.now() : performance.now()) / 1000;
+  }
 
   async resume(): Promise<void> {
     if (!this.context) {
@@ -20,7 +26,12 @@ export class AudioEngine {
       this.master.gain.value = this.muted ? 0 : this.volume;
       this.master.connect(this.context.destination);
     }
-    if (this.context.state === 'suspended') await this.context.resume();
+    if (this.context.state === 'suspended') {
+      await Promise.race([
+        this.context.resume(),
+        new Promise<void>((resolve) => globalThis.setTimeout(resolve, 250)),
+      ]);
+    }
   }
 
   setVolume(value: number): void {
@@ -76,7 +87,12 @@ export class AudioEngine {
   async click(accent = false, volume = 0.5): Promise<void> {
     await this.resume();
     if (!this.context || !this.master) return;
-    const now = this.context.currentTime;
+    this.scheduleClickAt(this.context.currentTime, accent, volume);
+  }
+
+  scheduleClickAt(time: number, accent = false, volume = 0.5): void {
+    if (!this.context || !this.master || this.context.state !== 'running') return;
+    const now = Math.max(time, this.context.currentTime);
     const oscillator = this.context.createOscillator();
     const gain = this.context.createGain();
     oscillator.type = 'sine';
@@ -85,8 +101,17 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
     oscillator.connect(gain);
     gain.connect(this.master);
+    this.scheduledClicks.add(oscillator);
+    oscillator.onended = () => this.scheduledClicks.delete(oscillator);
     oscillator.start(now);
     oscillator.stop(now + 0.05);
+  }
+
+  cancelScheduledClicks(): void {
+    for (const oscillator of this.scheduledClicks) {
+      try { oscillator.stop(); } catch { /* Already stopped by the audio timeline. */ }
+    }
+    this.scheduledClicks.clear();
   }
 
   private stopVoice(note: number, voice: Voice, release: number): void {

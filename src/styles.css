@@ -45,7 +45,7 @@ main { display: grid; grid-template-rows: 62px minmax(0, 1fr) auto; min-width: 0
 .topbar strong { font-size: 12px; }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 .content-area { overflow-y: auto; padding: 22px 24px; scrollbar-color: #343944 transparent; }
-.keyboard-dock { display: grid; grid-template-columns: 150px 1fr; gap: 16px; align-items: stretch; padding: 11px 24px 12px; border-top: 1px solid var(--line); background: #0b0d10; }
+.keyboard-dock { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: stretch; padding: 11px 24px 12px; border-top: 1px solid var(--line); background: #0b0d10; }
 
 .button { border: 0; border-radius: 9px; padding: 10px 15px; font-weight: 700; font-size: 12px; cursor: pointer; transition: transform 140ms var(--ease-out), background-color 160ms ease, border-color 160ms ease; }
 .button.primary { color: #07100f; background: var(--cyan); box-shadow: 0 8px 24px rgba(70,220,192,.13); }
@@ -115,6 +115,15 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .stats-grid span { color: #6e7580; font-size: 8px; }
 .stats-grid strong { font: 700 18px 'Manrope'; }
 .hint { color: #727985; font-size: 9px; line-height: 1.6; }
+.daily-brief p { margin: -7px 0 12px; color: #858c96; font-size: 9px; line-height: 1.5; }
+.daily-brief dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0; overflow: hidden; border-radius: 8px; background: var(--line); }
+.daily-brief dl div { display: grid; gap: 2px; padding: 8px 5px; background: #0e1014; text-align: center; }
+.daily-brief dt { color: #666d78; font-size: 7px; }
+.daily-brief dd { margin: 0; color: #dce0e4; font: 700 9px 'Manrope'; }
+.custom-chords { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-height: 116px; margin-top: 10px; overflow-y: auto; }
+.custom-chords label { display: flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 5px; color: #939aa4; font-size: 7px; }
+.custom-chords input { margin: 0; accent-color: var(--cyan); }
+.inline-practice-error { margin: 4px 0; color: var(--red); font-size: 9px; }
 
 .chord-queue { display: grid; grid-template-columns: 1fr 1.65fr 1fr; align-items: center; width: min(680px, 100%); text-align: center; }
 .queue-current { display: grid; padding: 27px 20px; border: 1px solid var(--line-strong); border-radius: 15px; background: #16191f; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
@@ -127,6 +136,9 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .queue-next strong { font: 700 30px 'Manrope'; }
 .progression-actions { display: flex; align-items: center; gap: 13px; margin-top: 25px; }
 .progression-actions span { color: #69707c; font-size: 9px; }
+.count-in-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; text-align: center; background: rgba(9,10,13,.82); backdrop-filter: blur(3px); }
+.count-in-overlay span { color: var(--cyan); font: 700 9px 'Manrope'; letter-spacing: 2px; }
+.count-in-overlay strong { font: 800 96px/1 'Manrope'; }
 
 .sixty-timer { display: flex; align-items: baseline; gap: 5px; margin-bottom: 12px; }
 .sixty-timer span { color: #6c737e; font-size: 10px; }
@@ -152,6 +164,8 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .current-chord span { color: #666d78; font-size: 8px; }
 .current-chord strong { color: var(--cyan); font: 800 29px 'Manrope'; }
 .current-chord small { overflow: hidden; color: #8b919b; font-size: 8px; white-space: nowrap; text-overflow: ellipsis; }
+.split-control { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; color: #666d78; font-size: 7px; }
+.split-control select { padding: 3px 18px 3px 5px; font-size: 7px; }
 .piano-wrap { min-width: 0; }
 .keyboard-tools { display: flex; align-items: center; justify-content: space-between; height: 19px; color: #555c66; font-size: 7px; }
 .keyboard-tools button { padding: 2px 7px; border: 1px solid var(--line); border-radius: 5px; color: #6e7580; background: #12151a; font-size: 7px; cursor: pointer; }
@@ -220,6 +234,9 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .day-card.completed { opacity: .68; }
 .day-card-head { display: flex; justify-content: space-between; color: #69707b; font: 700 8px 'Manrope'; letter-spacing: 1.3px; }
 .day-card h3 { margin: 4px 0 12px; font: 700 13px 'Manrope'; }
+.day-description { min-height: 15px; margin: -8px 0 8px; color: #737a85; font-size: 8px; }
+.day-goal { display: flex; gap: 5px; margin-bottom: 9px; }
+.day-goal span { padding: 3px 5px; border-radius: 4px; color: #89919b; background: #0d0f13; font-size: 7px; }
 .completion-check input { position: absolute; opacity: 0; }
 .completion-check i { display: grid; place-items: center; width: 19px; height: 19px; border: 1px solid var(--line-strong); border-radius: 6px; color: transparent; font-style: normal; cursor: pointer; }
 .completion-check input:checked + i { color: #07110f; border-color: var(--cyan); background: var(--cyan); }
@@ -227,6 +244,7 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .day-fields label { position: relative; display: grid; gap: 4px; color: #666d78; font-size: 7px; }
 .day-fields input { width: 100%; padding: 6px 23px 6px 7px; border: 1px solid var(--line); border-radius: 7px; color: #ced2d7; background: #0d0f13; font-size: 10px; }
 .day-fields label span { position: absolute; right: 6px; bottom: 7px; color: #555c66; font-size: 7px; }
+.day-start { width: 100%; margin-top: 10px; padding: 7px 10px; font-size: 9px; }
 .error-banner { margin-bottom: 10px; padding: 10px; border: 1px solid rgba(255,111,116,.3); border-radius: 9px; color: #ffb7ba; background: rgba(255,111,116,.08); font-size: 10px; }
 
 .focus-exit { position: fixed; top: 13px; right: 16px; z-index: 20; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #7c838e; background: #111318; font-size: 9px; cursor: pointer; }

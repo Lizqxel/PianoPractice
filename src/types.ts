@@ -12,6 +12,7 @@ export interface ChordDefinition {
 export interface ChordTarget {
   root: PitchClass;
   quality: ChordQuality;
+  bass?: PitchClass;
 }
 
 export type Inversion = '基本形' | '第1転回形' | '第2転回形' | '第3転回形' | '転回形不明';
@@ -23,6 +24,16 @@ export interface ChordAnalysis {
   inversion: Inversion | null;
   missing: PitchClass[];
   extra: PitchClass[];
+}
+
+export interface HandAnalysis {
+  isExact: boolean;
+  rightHand: ChordAnalysis;
+  rightInversion: Inversion | null;
+  leftBass: PitchClass | null;
+  expectedBass: PitchClass | null;
+  bassCorrect: boolean;
+  bassMessage: string | null;
 }
 
 export interface MidiNoteEvent {
@@ -48,4 +59,32 @@ export interface CurriculumDayRecord {
   accuracy: number;
   averageMs: number;
   completed: boolean;
+  lastPracticedAt?: string;
+}
+
+export interface ChordPerformanceRecord {
+  id: string;
+  target: ChordTarget;
+  attempts: number;
+  correct: number;
+  totalReactionMs: number;
+  lastPracticedAt: string;
+}
+
+export interface DailySessionResult {
+  day: number;
+  minutes: number;
+  accuracy: number;
+  averageMs: number;
+  passed: boolean;
+}
+
+export interface CurriculumDayDefinition {
+  day: number;
+  title: string;
+  description: string;
+  targets: readonly ChordTarget[];
+  questionCount: number;
+  passAccuracy: number;
+  maxAverageMs: number;
 }

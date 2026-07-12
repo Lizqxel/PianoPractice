@@ -32,8 +32,21 @@ export function midiNoteName(note: number): string {
   return `${NOTE_NAMES_SHARP[pc]}${octave}`;
 }
 
-export function chordName(target: ChordTarget, preferFlats = true): string {
-  return `${pitchClassName(target.root, preferFlats)}${CHORD_DEFINITIONS[target.quality].symbol}`;
+export function chordName(target: ChordTarget, preferFlats = keyPrefersFlats(target.root)): string {
+  const chord = `${pitchClassName(target.root, preferFlats)}${CHORD_DEFINITIONS[target.quality].symbol}`;
+  return target.bass !== undefined && target.bass !== target.root
+    ? `${chord}/${pitchClassName(target.bass, preferFlats)}`
+    : chord;
+}
+
+const FLAT_KEYS = new Set<PitchClass>([1, 3, 5, 8, 10]);
+
+export function keyPrefersFlats(key: PitchClass): boolean {
+  return FLAT_KEYS.has(key) || key === 0;
+}
+
+export function chordNameForKey(target: ChordTarget, key: PitchClass): string {
+  return chordName(target, keyPrefersFlats(key));
 }
 
 export function chordPitchClasses(target: ChordTarget): PitchClass[] {
