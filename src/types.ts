@@ -47,6 +47,13 @@ export interface MidiNoteEvent {
   timestamp: number;
 }
 
+export interface MidiRawEvent {
+  data: readonly number[];
+  timestamp: number;
+}
+
+export type SoundMode = 'internal' | 'external' | 'both';
+
 export type AppMode = 'home' | 'sprint' | 'progression' | 'sixty' | 'curriculum' | 'lesson';
 
 export interface SprintStats {

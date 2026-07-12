@@ -32,6 +32,19 @@ npm run build
 
 MIDI機器がなくても、画面下のC2〜C6仮想鍵盤をマウスまたはタッチで操作できます。MIDI入力と仮想鍵盤のどちらでも内蔵音源が鳴り、同じコード判定が動作します。
 
+## Studio One／外部DAW音源
+
+音源設定を「Studio One／外部DAW」にすると、受信したMIDIを選択したMIDI出力へ転送します。内蔵鍵盤音は停止しますが、コード判定、画面上の鍵盤、練習記録、内蔵メトロノームはそのまま利用できます。「内蔵＋外部の両方」も選択できます。
+
+Windowsでは仮想MIDIポートを作成し、次のように接続します。
+
+1. 「Chord Sprint Out」という仮想MIDIポートを作成します。
+2. Chord Sprintの入力に実物のMIDIキーボード、出力にChord Sprint Outを選びます。
+3. Studio One 6の外部デバイスでNew Keyboardを追加し、Receive FromをChord Sprint Out、Send ToをNoneにします。
+4. Instrument Trackを作成し、好きな音源とプリセットを選んでモニターをONにします。
+
+ブラウザからStudio One内のVSTやプリセットを取得することはできません。音源とプリセットの選択はStudio One側で行います。MIDI入出力に同じポートを選ぶとループする可能性があるため、画面の警告が出た場合は設定を見直してください。
+
 ## 収録機能
 
 - コード瞬発: 今日・白鍵・メジャー・マイナー・苦手・カスタム・全コードから出題範囲を選択
@@ -46,6 +59,7 @@ MIDI機器がなくても、画面下のC2〜C6仮想鍵盤をマウスまたは
 - 分数コード: C/E、C/G、D/F#、G/Bなどの右手コードとベースを個別判定
 - リアルタイムコード検出: major、minor、dim、sus4、7、maj7、m7、add9と転回形
 - Web Audio音源: sine + triangle、16音ポリフォニック、音量・ミュート
+- 外部DAW音源: Note On/Off、Velocity、チャンネル、CC、サステイン、Pitch Bend、AftertouchをMIDI出力へ転送
 - メトロノーム: アクセント、音量、4カウント
 - 集中モード
 

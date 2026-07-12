@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeChord, analyzeHands } from '../music/chordMatcher';
 import { chordName, pitchClassNameForTarget, toPitchClass } from '../music/chordDefinitions';
-import { recordLearningAttempt, targetId } from '../music/performance';
-import { fingeringMap, recommendedBassNote, recommendedVoicing, voicingNoteNames, voicingPitchClasses } from '../music/voicings';
+import { areTargetsMastered, isLearningRecordMastered, recordLearningAttempt, targetId } from '../music/performance';
+import { fingeringMap, recommendedBassNote, recommendedVoicing, sameMidiNotes, voicingNoteNames, voicingPitchClasses } from '../music/voicings';
 import { loadPerformance, savePerformance } from '../services/storage';
 import type { ChordPerformanceRecord, CurriculumDayDefinition, DailySessionResult, KeyboardGuideState } from '../types';
 
@@ -23,12 +23,12 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
   const [showGuide, setShowGuide] = useState(true);
   const [wrong, setWrong] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
+  const [allowFlexibleVoicing, setAllowFlexibleVoicing] = useState(false);
   const [waitingRelease, setWaitingRelease] = useState(false);
   const [revealedNotes, setRevealedNotes] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [totalReactionMs, setTotalReactionMs] = useState(0);
-  const [unguidedCounts, setUnguidedCounts] = useState<Record<string, number>>({});
   const startedAt = useRef(nowMs());
   const questionStartedAt = useRef(nowMs());
   const lastMistake = useRef('');
@@ -41,18 +41,23 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
   const requiredNoteCount = recommended.length + (bassNote === null ? 0 : 1);
   const handAnalysis = analyzeHands(target, notes, splitNote);
   const wholeAnalysis = analyzeChord(target, notes);
-  const isExact = target.bass === undefined ? wholeAnalysis.isExact : handAnalysis.isExact;
+  const expectedMidi = useMemo(() => bassNote === null ? recommended : [bassNote, ...recommended], [bassNote, recommended]);
+  const recommendedExact = sameMidiNotes(notes, expectedMidi);
+  const flexibleExact = target.bass === undefined ? wholeAnalysis.isExact : handAnalysis.isExact;
+  const isExact = phase === 'shape' || phase === 'hinted' || !allowFlexibleVoicing ? recommendedExact : flexibleExact;
+  const attemptIsGuided = phase !== 'independent' || hintUsed;
 
   const classified = useMemo(() => {
     const correctNotes: number[] = [];
     const extraNotes: number[] = [];
     for (const note of notes) {
       const pc = toPitchClass(note);
-      const valid = target.bass !== undefined && note < splitNote ? pc === target.bass : targetPcs.includes(pc);
+      const strict = phase !== 'independent' || !allowFlexibleVoicing;
+      const valid = strict ? expectedMidi.includes(note) : target.bass !== undefined && note < splitNote ? pc === target.bass : targetPcs.includes(pc);
       (valid ? correctNotes : extraNotes).push(note);
     }
     return { correctNotes, extraNotes };
-  }, [notes, splitNote, target.bass, targetPcs]);
+  }, [allowFlexibleVoicing, expectedMidi, notes, phase, splitNote, target.bass, targetPcs]);
 
   useEffect(() => {
     if (phase === 'shape') setShowGuide(true);
@@ -85,21 +90,19 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
     setWrong(true);
     if (phase === 'hinted') setShowGuide(true);
     setAttempts((value) => value + 1);
-    setPerformance((current) => persist(recordLearningAttempt(current, target, { correct: false, guided: showGuide, hintUsed, reactionMs: nowMs() - questionStartedAt.current })));
-  }, [hintUsed, isExact, notes, phase, requiredNoteCount, showGuide, target, waitingRelease]);
+    setPerformance((current) => persist(recordLearningAttempt(current, target, { correct: false, guided: attemptIsGuided, hintUsed, reactionMs: nowMs() - questionStartedAt.current })));
+  }, [attemptIsGuided, hintUsed, isExact, notes, phase, requiredNoteCount, showGuide, target, waitingRelease]);
 
   useEffect(() => {
     if (waitingRelease || !isExact) return;
     const reactionMs = nowMs() - questionStartedAt.current;
-    const unguidedSuccess = phase === 'independent' && !hintUsed;
     setAttempts((value) => value + 1);
     setCorrect((value) => value + 1);
     setTotalReactionMs((value) => value + reactionMs);
-    if (unguidedSuccess) setUnguidedCounts((current) => ({ ...current, [targetId(target)]: (current[targetId(target)] ?? 0) + 1 }));
-    setPerformance((current) => persist(recordLearningAttempt(current, target, { correct: true, guided: showGuide, hintUsed, reactionMs })));
+    setPerformance((current) => persist(recordLearningAttempt(current, target, { correct: true, guided: attemptIsGuided, hintUsed, reactionMs })));
     setWaitingRelease(true);
     setRevealedNotes(1);
-  }, [hintUsed, isExact, phase, showGuide, target, waitingRelease]);
+  }, [attemptIsGuided, hintUsed, isExact, phase, showGuide, target, waitingRelease]);
 
   useEffect(() => {
     if (!waitingRelease || revealedNotes >= recommended.length) return undefined;
@@ -115,8 +118,7 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
     else if (phase === 'hinted' && nextIndex >= targets.length * 2) { setPhase('independent'); setIndex(0); }
     else if (phase === 'hinted') setIndex(nextIndex);
     else if (phase === 'independent') {
-      const counts = unguidedCounts;
-      const masteredAll = targets.every((item) => (counts[targetId(item)] ?? 0) >= 2);
+      const masteredAll = areTargetsMastered(targets, performance);
       if (masteredAll) {
         const accuracy = attempts === 0 ? 100 : Math.round((correct / attempts) * 100);
         onComplete({ day: definition.day, minutes: Math.max(1, Math.round((nowMs() - startedAt.current) / 60000)), accuracy, averageMs: correct ? Math.round(totalReactionMs / correct) : 0, passed: true });
@@ -125,7 +127,8 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
       let candidate = (index + 1) % targets.length;
       for (let offset = 0; offset < targets.length; offset += 1) {
         const possible = (candidate + offset) % targets.length;
-        if ((counts[targetId(targets[possible]!)] ?? 0) < 2) { candidate = possible; break; }
+        const record = performance.find((item) => item.id === targetId(targets[possible]!));
+        if (!isLearningRecordMastered(record)) { candidate = possible; break; }
       }
       setIndex(candidate);
     } else setIndex(nextIndex);
@@ -135,11 +138,11 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
     setRevealedNotes(0);
     lastMistake.current = '';
     questionStartedAt.current = nowMs();
-  }, [attempts, correct, definition.day, hintUsed, index, notes.length, onComplete, phase, target, targets, totalReactionMs, unguidedCounts, waitingRelease]);
+  }, [attempts, correct, definition.day, hintUsed, index, notes.length, onComplete, performance, phase, target, targets, totalReactionMs, waitingRelease]);
 
   const phaseLabel = phase === 'shape' ? 'A · 形を覚える' : phase === 'hinted' ? 'B · ヒント付き' : 'C · 自力確認';
   const noteNames = voicingNoteNames(target);
-  const learned = targets.filter((item) => (unguidedCounts[targetId(item)] ?? 0) >= 2).length;
+  const learned = targets.filter((item) => isLearningRecordMastered(performance.find((record) => record.id === targetId(item)))).length;
   const formula = target.quality === 'minor' || target.quality === 'm7' ? 'マイナーコード：ルートから3半音、さらに4半音' : target.quality === 'major' ? 'メジャーコード：ルートから4半音、さらに3半音' : '構成音を一音ずつ確認して形を覚えましょう';
 
   return <div className="mode-layout guided-layout" data-testid={`lesson-${definition.lessonType}`}>
@@ -153,7 +156,7 @@ export function GuidedChordLearningMode({ definition, notes, splitNote, onGuideC
       {wrong && phase === 'independent' && !showGuide && <button className="button secondary" type="button" onClick={() => { setShowGuide(true); setHintUsed(true); }}>ヒントを見る</button>}
       <div className={`learning-feedback ${wrong ? 'bad' : ''}`}>{wrong ? '赤い×の鍵盤を離し、ガイドを確認しましょう' : waitingRelease ? `構成音：${noteNames.join(' → ')}` : phase === 'hinted' && !showGuide ? 'ヒントを隠しました。コードネームから弾いてみましょう' : 'ガイドの●とおすすめ指番号を見て弾きましょう'}</div>
     </section>
-    <aside className="mode-sidebar"><section className="panel"><span className="eyebrow">PROGRESS</span><h3>{phaseLabel}</h3><div className="learning-progress"><div><span>覚えた</span><strong>{learned}/{targets.length}</strong></div><div><span>正解</span><strong>{correct}</strong></div></div><p className="hint">各コードをガイドなしで2回正解すると「覚えた」になります。</p></section><section className="panel chord-roster">{targets.map((item) => <div className={(unguidedCounts[targetId(item)] ?? 0) >= 2 ? 'mastered' : ''} key={targetId(item)}><span>{chordName(item)}</span><b>{Math.min(2, unguidedCounts[targetId(item)] ?? 0)}/2</b></div>)}</section></aside>
+    <aside className="mode-sidebar"><section className="panel"><span className="eyebrow">PROGRESS</span><h3>{phaseLabel}</h3><div className="learning-progress"><div><span>覚えた</span><strong>{learned}/{targets.length}</strong></div><div><span>正解</span><strong>{correct}</strong></div></div><p className="hint">各コードをガイドなしで2回以上正解し、直近正解率80%以上で「覚えた」になります。</p>{phase === 'independent' && <label className="check-row"><input type="checkbox" checked={allowFlexibleVoicing} onChange={(event) => setAllowFlexibleVoicing(event.target.checked)} />別オクターブ・転回形も正解にする</label>}</section><section className="panel chord-roster">{targets.map((item) => { const record = performance.find((entry) => entry.id === targetId(item)); return <div className={isLearningRecordMastered(record) ? 'mastered' : ''} key={targetId(item)}><span>{chordName(item)}</span><b>{Math.min(2, record?.unguidedCorrect ?? 0)}/2</b></div>; })}</section></aside>
   </div>;
 }
 

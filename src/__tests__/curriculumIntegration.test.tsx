@@ -27,7 +27,7 @@ describe('カリキュラムルーティング', () => {
     [5, 'bassChord'], [6, 'progression'], [7, 'sprint'], [8, 'guidedChordLearning'], [9, 'slashChord'],
     [10, 'progression'], [11, 'song'], [12, 'sightReading'], [13, 'sprint'], [14, 'mixedTest'],
   ])('Day %iを%s画面へ接続する', (day, lessonType) => {
-    render(<LessonSessionRouter day={day as number} notes={[]} splitNote={60} audio={fakeAudio} bpm={80} onBpmChange={vi.fn()} metronomeVolume={55} onMetronomeVolumeChange={vi.fn()} onGuideChange={vi.fn()} onComplete={vi.fn()} onSessionStart={vi.fn()} />);
+    render(<LessonSessionRouter day={day as number} notes={[]} splitNote={60} audio={fakeAudio} bpm={80} onBpmChange={vi.fn()} metronomeVolume={55} onMetronomeVolumeChange={vi.fn()} onGuideChange={vi.fn()} onComplete={vi.fn()} onSessionStart={vi.fn()} onAllNotesOff={vi.fn()} />);
     expect(screen.getByTestId(`lesson-${lessonType}`)).toBeInTheDocument();
   });
 });
@@ -52,6 +52,15 @@ describe('ガイド学習', () => {
     expect(names).toEqual(['C', 'F', 'G', 'Am', 'Dm', 'Em']);
   });
 
+  it('フェーズAでは別オクターブを弾いても正解にならない', async () => {
+    const definition: CurriculumDayDefinition = { ...getCurriculumDay(1), targets: [{ root: 0, quality: 'major' }], questionCount: 5 };
+    const onComplete = vi.fn();
+    const onGuideChange = vi.fn();
+    render(<GuidedChordLearningMode definition={definition} notes={[72, 76, 79]} splitNote={60} onGuideChange={onGuideChange} onComplete={onComplete} />);
+    await waitFor(() => expect(onGuideChange).toHaveBeenLastCalledWith(expect.objectContaining({ guideNotes: [60, 64, 67], correctActiveNotes: [], extraActiveNotes: [72, 76, 79] })));
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
   it('対象コードをガイドなしで2回正解すると合格する', async () => {
     const definition: CurriculumDayDefinition = { ...getCurriculumDay(1), targets: [{ root: 0, quality: 'major' }], questionCount: 5 };
     const onComplete = vi.fn();
@@ -62,6 +71,7 @@ describe('ガイド学習', () => {
       await act(async () => { rerender(renderMode([60, 64, 67])); });
       await waitFor(() => expect(screen.getByText('正解！ 音を離して次へ')).toBeInTheDocument());
       await act(async () => { rerender(renderMode([])); });
+      if (cycle === 2) await waitFor(() => expect(screen.getAllByText('C · 自力確認').length).toBeGreaterThan(0));
     }
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ passed: true })));
   });
@@ -101,7 +111,7 @@ describe('保存と進行セッション', () => {
 
   it('進行開始時にサイドバーのメトロノーム停止コールバックを呼ぶ', async () => {
     const onSessionStart = vi.fn();
-    render(<LessonSessionRouter day={6} notes={[]} splitNote={60} audio={fakeAudio} bpm={80} onBpmChange={vi.fn()} metronomeVolume={55} onMetronomeVolumeChange={vi.fn()} onGuideChange={vi.fn()} onComplete={vi.fn()} onSessionStart={onSessionStart} />);
+    render(<LessonSessionRouter day={6} notes={[]} splitNote={60} audio={fakeAudio} bpm={80} onBpmChange={vi.fn()} metronomeVolume={55} onMetronomeVolumeChange={vi.fn()} onGuideChange={vi.fn()} onComplete={vi.fn()} onSessionStart={onSessionStart} onAllNotesOff={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '4カウントで開始' }));
     await waitFor(() => expect(onSessionStart).toHaveBeenCalledTimes(1));
   });

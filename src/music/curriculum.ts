@@ -34,7 +34,7 @@ export const CURRICULUM_DAYS: readonly CurriculumDayDefinition[] = [
   { day: 11, lessonType: 'song', title: '実曲練習', description: '自分で作るコード譜を止まらず演奏', targets: [...day1, chord(10), chord(11, 'minor')], questionCount: 16, passAccuracy: 85, maxAverageMs: 4000 },
   { day: 12, lessonType: 'sightReading', title: '初見コード練習', description: '10秒確認してランダムコード譜を初見演奏', targets: allTriads, questionCount: 12, passAccuracy: 80, maxAverageMs: 4500 },
   { day: 13, lessonType: 'sprint', title: '苦手コード集中', description: '成績から苦手コードを自動抽出', targets: allTriads, questionCount: 20, passAccuracy: 85, maxAverageMs: 4500 },
-  { day: 14, lessonType: 'mixedTest', title: '最終テスト', description: '瞬発・転回形・分数・進行・初見の総合テスト', targets: [...allTriads, ...advanced, ...slashChords], questionCount: 34, passAccuracy: 85, maxAverageMs: 4000 },
+  { day: 14, lessonType: 'mixedTest', title: '最終テスト', description: '瞬発・転回形・分数・進行・初見の総合テスト', targets: [...allTriads, ...advanced, ...slashChords], questionCount: 46, passAccuracy: 85, maxAverageMs: 4000 },
 ];
 
 export function getCurriculumDay(day: number): CurriculumDayDefinition {

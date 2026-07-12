@@ -18,11 +18,12 @@ interface ProgressionModeProps {
   onSessionStart?: () => void;
   metronomeVolume?: number;
   onMetronomeVolumeChange?: (volume: number) => void;
+  onAllNotesOff?: () => void;
 }
 type Division = 4 | 2 | 1;
 const KEY_SEQUENCE: readonly PitchClass[] = [0, 7, 2, 5, 9];
 
-export function ProgressionMode({ notes, audio, bpm, onBpmChange, curriculumDefinition, onGuideChange, onComplete, onSessionStart, metronomeVolume, onMetronomeVolumeChange }: ProgressionModeProps) {
+export function ProgressionMode({ notes, audio, bpm, onBpmChange, curriculumDefinition, onGuideChange, onComplete, onSessionStart, metronomeVolume, onMetronomeVolumeChange, onAllNotesOff }: ProgressionModeProps) {
   const [patternId, setPatternId] = useState('pop');
   const [selectedKey, setSelectedKey] = useState<PitchClass>(0);
   const [division, setDivision] = useState<Division>(4);
@@ -41,7 +42,7 @@ export function ProgressionMode({ notes, audio, bpm, onBpmChange, curriculumDefi
   const startedAt = useRef(0);
   const completed = useRef(false);
   const isCurriculum = curriculumDefinition?.lessonType === 'progression';
-  const maxSteps = curriculumDefinition?.day === 10 ? 40 : curriculumDefinition?.day === 6 ? 32 : Number.POSITIVE_INFINITY;
+  const maxSteps = curriculumDefinition?.day === 10 ? 40 : curriculumDefinition?.day === 6 ? 32 : curriculumDefinition?.day === 14 ? 16 : Number.POSITIVE_INFINITY;
   const curriculumKey = curriculumDefinition?.day === 10 ? KEY_SEQUENCE[Math.min(4, Math.floor(sessionStep / 8))]! : 0;
   const keyRoot = isCurriculum ? curriculumKey : selectedKey;
   const pattern = PROGRESSIONS.find((item) => item.id === patternId) ?? PROGRESSIONS[0]!;
@@ -109,7 +110,7 @@ export function ProgressionMode({ notes, audio, bpm, onBpmChange, curriculumDefi
     return () => onGuideChange({ guideNotes: [], leftGuideNotes: [], correctActiveNotes: [], extraActiveNotes: [], fingering: {}, spelling: 'flat' });
   }, [analysis.isExact, current, keyRoot, next, notes, onGuideChange, pattern, showCurrentGuide, showNextGuide]);
 
-  const stop = () => { scheduler.current?.stop(); scheduler.current = null; setCountIn(null); if (isCurriculum) finishCurriculum(true); else setRunning(false); };
+  const stop = () => { scheduler.current?.stop(); scheduler.current = null; setCountIn(null); onAllNotesOff?.(); if (isCurriculum) finishCurriculum(true); else setRunning(false); };
   const start = async () => { await audio.resume(); onSessionStart?.(); completed.current = false; startedAt.current = nowMs(); delaysRef.current = []; sessionStepRef.current = 0; setDelays([]); setIndex(0); setSessionStep(0); setCountIn(4); setRunning(true); };
   const avgDelay = delays.length ? Math.round(delays.reduce((sum, value) => sum + value, 0) / delays.length) : 0;
   const curriculumStatus = curriculumDefinition?.day === 10 ? `キー ${chordNameForKey({ root: keyRoot, quality: 'major' }, keyRoot)} · ${Math.floor((sessionStep % 8) / 4) + 1}/2周` : `${Math.min(8, round + 1)}/8周`;

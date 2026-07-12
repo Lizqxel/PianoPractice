@@ -3,7 +3,8 @@ import { analyzeChord, analyzeHands } from '../music/chordMatcher';
 import { advanceChordChange, initialChordChangeState } from '../music/chordChangeTracker';
 import { chordName, chordNameForKey } from '../music/chordDefinitions';
 import { getCurriculumDay, targetsForDay } from '../music/curriculum';
-import { extractWeakTargets, recordAttempt, targetId } from '../music/performance';
+import { areTargetsMastered, extractWeakTargets, recordAttempt, targetId } from '../music/performance';
+import { sameMidiNotes } from '../music/voicings';
 import { TempoScheduler, type TempoAudioClock } from '../services/tempoScheduler';
 import type { ChordPerformanceRecord, ChordTarget } from '../types';
 
@@ -65,6 +66,23 @@ describe('コード別成績', () => {
     records = recordAttempt(records, g, true, 900);
     records = recordAttempt(records, g, true, 1000);
     expect(extractWeakTargets(records)).toEqual([c]);
+  });
+});
+
+describe('初心者学習の厳密判定', () => {
+  it('推奨ボイシングと別オクターブの同じコードを区別する', () => {
+    expect(sameMidiNotes([60, 64, 67], [60, 64, 67])).toBe(true);
+    expect(sameMidiNotes([72, 76, 79], [60, 64, 67])).toBe(false);
+  });
+
+  it('ガイドなし正解が2回あっても直近正解率80%未満なら習得にしない', () => {
+    const target: ChordTarget = { root: 0, quality: 'major' };
+    const record: ChordPerformanceRecord = {
+      id: targetId(target), target, attempts: 10, correct: 2, totalReactionMs: 1800,
+      unguidedCorrect: 2, mastered: true, recentResults: [false, false, false, false, false, false, false, false, true, true],
+      lastPracticedAt: '2026-07-13T00:00:00.000Z',
+    };
+    expect(areTargetsMastered([target], [record])).toBe(false);
   });
 });
 
