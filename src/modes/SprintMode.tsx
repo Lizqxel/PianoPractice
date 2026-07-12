@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { analyzeChord, analyzeHands, formatPitchClasses } from '../music/chordMatcher';
-import { ALL_QUALITIES, NOTE_NAMES_FLAT, chordName } from '../music/chordDefinitions';
+import { ALL_QUALITIES, chordName, pitchClassNameForTarget } from '../music/chordDefinitions';
 import { getCurriculumDay, targetsForDay } from '../music/curriculum';
 import { extractWeakTargets, recordAttempt, targetId } from '../music/performance';
 import { loadPerformance, savePerformance } from '../services/storage';
@@ -16,11 +16,11 @@ interface SprintModeProps {
 
 type Scope = 'today' | 'white' | 'major' | 'minor' | 'weak' | 'custom' | 'all';
 const emptyStats: SprintStats = { attempts: 0, correct: 0, totalReactionMs: 0, fastestMs: null };
-const basicTargets: ChordTarget[] = NOTE_NAMES_FLAT.flatMap((_, root) => [
+const basicTargets: ChordTarget[] = Array.from({ length: 12 }, (_, root) => root).flatMap((root) => [
   { root: root as PitchClass, quality: 'major' as const },
   { root: root as PitchClass, quality: 'minor' as const },
 ]);
-const allTargets: ChordTarget[] = NOTE_NAMES_FLAT.flatMap((_, root) =>
+const allTargets: ChordTarget[] = Array.from({ length: 12 }, (_, root) => root).flatMap((root) =>
   ALL_QUALITIES.map((quality) => ({ root: root as PitchClass, quality })),
 );
 
@@ -146,7 +146,7 @@ export function SprintMode({ notes, curriculumDay, dailySession, splitNote, onDa
           <span>{result === 'complete' ? '練習結果を保存中' : running ? 'このコードを弾く' : result === 'idle' ? '準備できたら開始' : result === 'correct' ? '正解' : '時間切れ'}</span>
           <strong>{chordName(target)}</strong>
           <small>{target.bass !== undefined
-            ? handAnalysis.bassMessage ?? `右手：${handAnalysis.rightInversion ?? '判定中'}、左手：${handAnalysis.leftBass === null ? '—' : NOTE_NAMES_FLAT[handAnalysis.leftBass]}`
+            ? handAnalysis.bassMessage ?? `右手：${handAnalysis.rightInversion ?? '判定中'}、左手：${handAnalysis.leftBass === null ? '—' : pitchClassNameForTarget(handAnalysis.leftBass, target)}`
             : result === 'correct' ? wholeAnalysis.inversion : '転回形も正解です'}</small>
         </div>
         <div className="timer-track"><i style={{ transform: `scaleX(${remaining / (limit * 1_000)})` }} /></div>
@@ -157,7 +157,7 @@ export function SprintMode({ notes, curriculumDay, dailySession, splitNote, onDa
             {handAnalysis.rightHand.extra.length > 0 && <span className="bad">余分: {formatPitchClasses(handAnalysis.rightHand.extra)}</span>}
             {handAnalysis.bassMessage && <span className="bad">{handAnalysis.bassMessage}</span>}
           </>}
-          {isExact && <span className="good">右手：{handAnalysis.rightInversion ?? wholeAnalysis.inversion}、左手：{handAnalysis.leftBass === null ? '—' : NOTE_NAMES_FLAT[handAnalysis.leftBass]}</span>}
+          {isExact && <span className="good">右手：{handAnalysis.rightInversion ?? wholeAnalysis.inversion}、左手：{handAnalysis.leftBass === null ? '—' : pitchClassNameForTarget(handAnalysis.leftBass, target)}</span>}
         </div>
         {storageError && <div className="inline-practice-error" role="alert">{storageError}</div>}
         {!running && result !== 'complete' && <button className="button primary start-button" type="button" onClick={() => {

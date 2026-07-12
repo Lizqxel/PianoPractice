@@ -24,6 +24,39 @@ export function recordAttempt(
   return [...records.filter((record) => record.id !== id), updated];
 }
 
+export function recordLearningAttempt(
+  records: readonly ChordPerformanceRecord[],
+  target: ChordTarget,
+  result: { correct: boolean; guided: boolean; hintUsed: boolean; reactionMs: number },
+  now = new Date().toISOString(),
+): ChordPerformanceRecord[] {
+  const base = recordAttempt(records, target, result.correct, result.reactionMs, now);
+  const id = targetId(target);
+  return base.map((record) => {
+    if (record.id !== id) return record;
+    const recentResults = [...(record.recentResults ?? []), result.correct].slice(-10);
+    const unguidedCorrect = (record.unguidedCorrect ?? 0) + (result.correct && !result.guided && !result.hintUsed ? 1 : 0);
+    const recentAccuracy = recentResults.filter(Boolean).length / recentResults.length;
+    return {
+      ...record,
+      guidedCorrect: (record.guidedCorrect ?? 0) + (result.correct && (result.guided || result.hintUsed) ? 1 : 0),
+      unguidedCorrect,
+      mistakes: (record.mistakes ?? 0) + (result.correct ? 0 : 1),
+      hintUses: (record.hintUses ?? 0) + (result.hintUsed ? 1 : 0),
+      recentResults,
+      mastered: unguidedCorrect >= 2 && recentAccuracy >= 0.8,
+    };
+  });
+}
+
+export function learningSummary(records: readonly ChordPerformanceRecord[]): { mastered: number; learning: number; weak: ChordTarget[] } {
+  return {
+    mastered: records.filter((record) => record.mastered).length,
+    learning: records.filter((record) => !record.mastered && record.attempts > 0).length,
+    weak: extractWeakTargets(records),
+  };
+}
+
 export function performanceAccuracy(record: ChordPerformanceRecord): number {
   return record.attempts === 0 ? 0 : (record.correct / record.attempts) * 100;
 }

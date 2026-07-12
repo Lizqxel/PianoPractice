@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { CURRICULUM_DAYS } from '../music/curriculum';
-import { curriculumCsv, downloadCsv, loadCurriculum, saveCurriculum } from '../services/storage';
+import { chordName } from '../music/chordDefinitions';
+import { learningSummary } from '../music/performance';
+import { curriculumCsv, downloadCsv, loadCurriculum, loadPerformance, saveCurriculum } from '../services/storage';
 import type { CurriculumDayRecord } from '../types';
 
 export const CURRICULUM = CURRICULUM_DAYS.map((day) => day.title);
@@ -21,6 +23,7 @@ export function CurriculumMode({ onStartDay }: CurriculumModeProps) {
   const totalMinutes = records.reduce((sum, record) => sum + record.minutes, 0);
   const progress = Math.round((completed / 14) * 100);
   const nextDay = useMemo(() => records.find((record) => !record.completed)?.day ?? 14, [records]);
+  const learning = learningSummary(loadPerformance());
 
   const update = (day: number, patch: Partial<CurriculumDayRecord>) => {
     const next = records.map((record) => record.day === day ? { ...record, ...patch } : record);
@@ -32,11 +35,13 @@ export function CurriculumMode({ onStartDay }: CurriculumModeProps) {
     <div className="curriculum-page">
       <header className="curriculum-header"><div><span className="mode-kicker">14 DAY PROGRAM</span><h2>14日間で、コードを手の形に。</h2><p>短い練習を積み重ねて、見る・押さえる・つなぐを段階的に身につけます。</p></div><div className="progress-ring" style={{ '--progress': `${progress * 3.6}deg` } as React.CSSProperties}><div><strong>{progress}%</strong><span>{completed}/14日</span></div></div></header>
       <div className="curriculum-summary"><div><span>次のレッスン</span><strong>Day {nextDay}</strong><small>{CURRICULUM[nextDay - 1]}</small></div><div><span>累計練習</span><strong>{totalMinutes}<small> 分</small></strong></div><button className="button secondary" type="button" onClick={() => downloadCsv(curriculumCsv(records, CURRICULUM), 'chord-sprint-history.csv')}>CSVを書き出す</button></div>
+      <div className="learning-summary"><div><span>覚えたコード</span><strong>{learning.mastered}</strong></div><div><span>練習中</span><strong>{learning.learning}</strong></div><div><span>苦手コード</span><strong>{learning.weak.length ? learning.weak.slice(0, 4).map((target) => chordName(target)).join('・') : '—'}</strong></div><div><span>今日覚える</span><strong>{CURRICULUM_DAYS[nextDay - 1]?.targets.slice(0, 6).map((target) => chordName(target)).join('・')}</strong></div></div>
       {error && <div className="error-banner" role="alert">{error}</div>}
       <div className="day-grid">
         {records.map((record, index) => (
           <article className={`day-card ${record.completed ? 'completed' : ''} ${record.day === nextDay ? 'next' : ''}`} key={record.day}>
             <div className="day-card-head"><span>DAY {String(record.day).padStart(2, '0')}</span><label className="completion-check"><input type="checkbox" checked={record.completed} onChange={(event) => update(record.day, { completed: event.target.checked })} /><i>✓</i></label></div>
+            <span className="lesson-type-badge">{CURRICULUM_DAYS[index]?.lessonType}</span>
             <h3>{CURRICULUM[index]}</h3>
             <p className="day-description">{CURRICULUM_DAYS[index]?.description}</p>
             <div className="day-goal"><span>{CURRICULUM_DAYS[index]?.questionCount}問</span><span>合格 {CURRICULUM_DAYS[index]?.passAccuracy}%</span><span>平均 {(CURRICULUM_DAYS[index]!.maxAverageMs / 1000).toFixed(1)}秒以内</span></div>

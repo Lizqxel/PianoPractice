@@ -33,10 +33,15 @@ export function midiNoteName(note: number): string {
 }
 
 export function chordName(target: ChordTarget, preferFlats = keyPrefersFlats(target.root)): string {
+  if (target.spelling) preferFlats = target.spelling === 'flat';
   const chord = `${pitchClassName(target.root, preferFlats)}${CHORD_DEFINITIONS[target.quality].symbol}`;
   return target.bass !== undefined && target.bass !== target.root
     ? `${chord}/${pitchClassName(target.bass, preferFlats)}`
     : chord;
+}
+
+export function pitchClassNameForTarget(pc: PitchClass, target: ChordTarget): string {
+  return pitchClassName(pc, target.spelling ? target.spelling === 'flat' : keyPrefersFlats(target.root));
 }
 
 const FLAT_KEYS = new Set<PitchClass>([1, 3, 5, 8, 10]);

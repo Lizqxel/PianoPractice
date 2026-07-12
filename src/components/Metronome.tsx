@@ -5,11 +5,13 @@ interface MetronomeProps {
   audio: AudioEngine;
   bpm: number;
   onBpmChange: (bpm: number) => void;
+  running: boolean;
+  onRunningChange: (running: boolean) => void;
+  volume: number;
+  onVolumeChange: (volume: number) => void;
 }
 
-export function Metronome({ audio, bpm, onBpmChange }: MetronomeProps) {
-  const [running, setRunning] = useState(false);
-  const [volume, setVolume] = useState(55);
+export function Metronome({ audio, bpm, onBpmChange, running, onRunningChange, volume, onVolumeChange }: MetronomeProps) {
   const [countIn, setCountIn] = useState(true);
   const [beat, setBeat] = useState(0);
   const countRef = useRef(0);
@@ -33,8 +35,8 @@ export function Metronome({ audio, bpm, onBpmChange }: MetronomeProps) {
       <div className="section-title-row">
         <div><span className="eyebrow">TEMPO</span><h3>メトロノーム</h3></div>
         <button className={`icon-toggle ${running ? 'active' : ''}`} type="button" onClick={() => {
-          if (running) setRunning(false);
-          else void audio.resume().then(() => setRunning(true));
+          if (running) onRunningChange(false);
+          else void audio.resume().then(() => onRunningChange(true));
         }} aria-label={running ? '停止' : '開始'}>
           {running ? '■' : '▶'}
         </button>
@@ -45,7 +47,7 @@ export function Metronome({ audio, bpm, onBpmChange }: MetronomeProps) {
         {[0, 1, 2, 3].map((index) => <i className={running && beat === index ? 'on' : ''} key={index} />)}
       </div>
       <label className="range-label">クリック音量 <span>{volume}%</span></label>
-      <input aria-label="クリック音量" type="range" min="0" max="100" value={volume} onChange={(event) => setVolume(Number(event.target.value))} />
+      <input aria-label="クリック音量" type="range" min="0" max="100" value={volume} onChange={(event) => onVolumeChange(Number(event.target.value))} />
       <label className="check-row"><input type="checkbox" checked={countIn} onChange={(event) => setCountIn(event.target.checked)} />開始前に4カウント</label>
     </section>
   );
