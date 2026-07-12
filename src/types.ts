@@ -13,7 +13,10 @@ export interface ChordTarget {
   root: PitchClass;
   quality: ChordQuality;
   bass?: PitchClass;
+  spelling?: 'sharp' | 'flat';
 }
+
+export type LessonType = 'guidedChordLearning' | 'sprint' | 'inversion' | 'bassChord' | 'progression' | 'slashChord' | 'song' | 'sightReading' | 'mixedTest';
 
 export type Inversion = '基本形' | '第1転回形' | '第2転回形' | '第3転回形' | '転回形不明';
 
@@ -44,7 +47,7 @@ export interface MidiNoteEvent {
   timestamp: number;
 }
 
-export type AppMode = 'home' | 'sprint' | 'progression' | 'sixty' | 'curriculum';
+export type AppMode = 'home' | 'sprint' | 'progression' | 'sixty' | 'curriculum' | 'lesson';
 
 export interface SprintStats {
   attempts: number;
@@ -69,6 +72,12 @@ export interface ChordPerformanceRecord {
   correct: number;
   totalReactionMs: number;
   lastPracticedAt: string;
+  guidedCorrect?: number;
+  unguidedCorrect?: number;
+  mistakes?: number;
+  hintUses?: number;
+  recentResults?: boolean[];
+  mastered?: boolean;
 }
 
 export interface DailySessionResult {
@@ -87,4 +96,14 @@ export interface CurriculumDayDefinition {
   questionCount: number;
   passAccuracy: number;
   maxAverageMs: number;
+  lessonType: LessonType;
+}
+
+export interface KeyboardGuideState {
+  guideNotes: readonly number[];
+  leftGuideNotes: readonly number[];
+  correctActiveNotes: readonly number[];
+  extraActiveNotes: readonly number[];
+  fingering: Readonly<Record<number, number>>;
+  spelling: 'sharp' | 'flat';
 }

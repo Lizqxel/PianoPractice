@@ -3,6 +3,11 @@ import { midiNoteName, toPitchClass } from '../music/chordDefinitions';
 
 interface PianoKeyboardProps {
   activeNotes: ReadonlySet<number>;
+  guideNotes?: ReadonlySet<number>;
+  leftGuideNotes?: ReadonlySet<number>;
+  correctActiveNotes?: ReadonlySet<number>;
+  extraActiveNotes?: ReadonlySet<number>;
+  fingering?: Readonly<Record<number, number>>;
   onNoteOn: (note: number, velocity: number) => void;
   onNoteOff: (note: number) => void;
 }
@@ -11,7 +16,7 @@ const START_NOTE = 36;
 const END_NOTE = 84;
 const BLACK_PITCHES = new Set([1, 3, 6, 8, 10]);
 
-export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboardProps) {
+export function PianoKeyboard({ activeNotes, guideNotes = new Set(), leftGuideNotes = new Set(), correctActiveNotes = new Set(), extraActiveNotes = new Set(), fingering = {}, onNoteOn, onNoteOff }: PianoKeyboardProps) {
   const [latch, setLatch] = useState(false);
   const [latchedNotes, setLatchedNotes] = useState<Set<number>>(new Set());
   const notes = useMemo(
@@ -20,6 +25,23 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
   );
   const whiteNotes = notes.filter((note) => !BLACK_PITCHES.has(toPitchClass(note)));
   const blackNotes = notes.filter((note) => BLACK_PITCHES.has(toPitchClass(note)));
+
+  const keyState = (note: number): string => {
+    if (extraActiveNotes.has(note)) return 'is-extra';
+    if (correctActiveNotes.has(note)) return 'is-correct';
+    if (activeNotes.has(note)) return 'is-active';
+    if (leftGuideNotes.has(note)) return 'is-left-guide';
+    if (guideNotes.has(note)) return 'is-guide';
+    return '';
+  };
+
+  const keyMark = (note: number): string | null => {
+    if (extraActiveNotes.has(note)) return '×';
+    if (correctActiveNotes.has(note)) return '✓';
+    if (leftGuideNotes.has(note)) return 'L';
+    if (guideNotes.has(note)) return '●';
+    return null;
+  };
 
   const press = (event: React.PointerEvent<HTMLButtonElement>, note: number) => {
     event.preventDefault();
@@ -47,7 +69,7 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
   return (
     <div className="piano-wrap" aria-label="C2からC6の仮想鍵盤">
       <div className="keyboard-tools">
-        <span>仮想鍵盤</span>
+        <div className="keyboard-legend"><span><i className="legend-guide" />ガイド</span><span><i className="legend-correct" />緑：正しい</span><span><i className="legend-extra" />赤：余分</span></div>
         <button
           type="button"
           className={latch ? 'active' : ''}
@@ -66,7 +88,8 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
       <div className="piano">
         {whiteNotes.map((note) => (
           <button
-            className={`piano-key white-key ${activeNotes.has(note) ? 'is-active' : ''}`}
+            className={`piano-key white-key ${keyState(note)}`}
+            data-key-state={keyState(note) || 'normal'}
             key={note}
             type="button"
             aria-label={`${midiNoteName(note)} MIDI ${note}`}
@@ -74,6 +97,8 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
             onPointerUp={(event) => release(event, note)}
             onPointerCancel={(event) => release(event, note)}
           >
+            {keyMark(note) && <b className="key-state-mark">{keyMark(note)}</b>}
+            {fingering[note] && <em className="finger-number">{fingering[note]}</em>}
             {toPitchClass(note) === 0 && <span>{midiNoteName(note)}</span>}
           </button>
         ))}
@@ -83,7 +108,8 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
           const left = (whitesBefore / whiteNotes.length) * 100 - width / 2;
           return (
             <button
-              className={`piano-key black-key ${activeNotes.has(note) ? 'is-active' : ''}`}
+              className={`piano-key black-key ${keyState(note)}`}
+              data-key-state={keyState(note) || 'normal'}
               style={{ left: `${left}%`, width: `${width}%` }}
               key={note}
               type="button"
@@ -91,7 +117,10 @@ export function PianoKeyboard({ activeNotes, onNoteOn, onNoteOff }: PianoKeyboar
               onPointerDown={(event) => press(event, note)}
               onPointerUp={(event) => release(event, note)}
               onPointerCancel={(event) => release(event, note)}
-            />
+            >
+              {keyMark(note) && <b className="key-state-mark">{keyMark(note)}</b>}
+              {fingering[note] && <em className="finger-number">{fingering[note]}</em>}
+            </button>
           );
         })}
       </div>

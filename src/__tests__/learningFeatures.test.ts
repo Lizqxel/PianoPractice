@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { analyzeChord, analyzeHands } from '../music/chordMatcher';
 import { advanceChordChange, initialChordChangeState } from '../music/chordChangeTracker';
-import { chordNameForKey } from '../music/chordDefinitions';
+import { chordName, chordNameForKey } from '../music/chordDefinitions';
 import { getCurriculumDay, targetsForDay } from '../music/curriculum';
 import { extractWeakTargets, recordAttempt, targetId } from '../music/performance';
 import { TempoScheduler, type TempoAudioClock } from '../services/tempoScheduler';
@@ -11,11 +11,15 @@ describe('14日間学習機能', () => {
   it('Day 1は指定された6コードだけを出題する', () => {
     const names = targetsForDay(1).map(targetId);
     expect(names).toEqual(['0:major:-', '5:major:-', '7:major:-', '9:minor:-', '2:minor:-', '4:minor:-']);
-    expect(getCurriculumDay(1).questionCount).toBe(12);
+    expect(getCurriculumDay(1).questionCount).toBe(24);
   });
 
   it('Day 9は分数コードだけを出題する', () => {
     expect(targetsForDay(9).every((target) => target.bass !== undefined)).toBe(true);
+  });
+
+  it('Day 3はフラット表記へ固定する', () => {
+    expect(targetsForDay(3).filter((target) => target.quality === 'major').map((target) => chordName(target))).toEqual(['Db', 'Eb', 'Gb', 'Ab', 'Bb']);
   });
 });
 

@@ -4,7 +4,7 @@ import {
   CHORD_DEFINITIONS,
   chordName,
   chordPitchClasses,
-  keyPrefersFlats,
+  pitchClassNameForTarget,
   pitchClassName,
   toPitchClass,
 } from './chordDefinitions';
@@ -78,7 +78,7 @@ export function analyzeHands(target: ChordTarget, notes: readonly number[], spli
       ? 'ベース不足'
       : bassCorrect
         ? null
-        : `正しいベースは${pitchClassName(expectedBass, keyPrefersFlats(target.root))}`;
+        : `正しいベースは${pitchClassNameForTarget(expectedBass, target)}`;
   return {
     isExact: rightHand.isExact && bassCorrect,
     rightHand,

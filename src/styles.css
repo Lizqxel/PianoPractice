@@ -168,6 +168,10 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .split-control select { padding: 3px 18px 3px 5px; font-size: 7px; }
 .piano-wrap { min-width: 0; }
 .keyboard-tools { display: flex; align-items: center; justify-content: space-between; height: 19px; color: #555c66; font-size: 7px; }
+.keyboard-legend { display: flex; gap: 9px; }
+.keyboard-legend span { display: flex; align-items: center; gap: 3px; }
+.keyboard-legend i { width: 6px; height: 6px; border-radius: 50%; }
+.legend-guide { background: #9c8cff; }.legend-correct { background: var(--green); }.legend-extra { background: var(--red); }
 .keyboard-tools button { padding: 2px 7px; border: 1px solid var(--line); border-radius: 5px; color: #6e7580; background: #12151a; font-size: 7px; cursor: pointer; }
 .keyboard-tools button.active { color: #07110f; border-color: var(--cyan); background: var(--cyan); }
 .piano { position: relative; display: flex; height: 108px; user-select: none; touch-action: none; }
@@ -177,8 +181,20 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .white-key:last-of-type { border-radius: 0 5px 5px 0; }
 .white-key span { position: absolute; bottom: 5px; left: 50%; translate: -50%; font-size: 7px; }
 .white-key.is-active { color: #062b25; background: var(--cyan); box-shadow: inset 0 -8px 16px rgba(0,0,0,.12); }
+.white-key.is-guide { color: #382d77; background: #c9c2ff; box-shadow: inset 0 -9px 0 #9b8cf7; }
+.white-key.is-left-guide { color: #16445b; background: #bde9ff; box-shadow: inset 0 -9px 0 #62c7ed; }
+.white-key.is-correct { color: #083321; background: #76e3ad; box-shadow: inset 0 -9px 0 #43bb7e; }
+.white-key.is-extra { color: #52171b; background: #ff9297; box-shadow: inset 0 -9px 0 #e5575e; }
 .black-key { position: absolute; top: 0; height: 66%; z-index: 2; border: 1px solid #050609; border-radius: 0 0 4px 4px; background: #17191e; box-shadow: 0 5px 7px rgba(0,0,0,.5); }
 .black-key.is-active { background: var(--cyan-strong); box-shadow: inset 0 -5px 10px rgba(0,0,0,.2); }
+.black-key.is-guide { background: #7666d7; box-shadow: inset 0 -8px 0 #aa9fff; }
+.black-key.is-left-guide { background: #318bb0; box-shadow: inset 0 -8px 0 #75d5f6; }
+.black-key.is-correct { background: #31a76b; box-shadow: inset 0 -8px 0 #67dda2; }
+.black-key.is-extra { background: #b83d45; box-shadow: inset 0 -8px 0 #ff747b; }
+.key-state-mark { position: absolute; top: 5px; left: 50%; z-index: 4; translate: -50%; color: #0c1114; font-size: 8px; }
+.black-key .key-state-mark { color: #fff; }
+.finger-number { position: absolute; bottom: 18px; left: 50%; z-index: 4; display: grid; place-items: center; width: 14px; height: 14px; translate: -50%; border-radius: 50%; color: #fff; background: #6256b7; font-style: normal; font-size: 8px; }
+.black-key .finger-number { bottom: 5px; }
 .keyboard-range { display: flex; justify-content: space-between; padding-top: 3px; color: #545b66; font-size: 7px; }
 
 .home-page { max-width: 1180px; margin: 0 auto; }
@@ -229,11 +245,15 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .curriculum-summary strong { font: 700 17px 'Manrope'; }
 .curriculum-summary small { color: #858c96; font-size: 9px; }
 .day-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.learning-summary { display: grid; grid-template-columns: .6fr .6fr 1.2fr 1.6fr; gap: 8px; margin-bottom: 13px; }
+.learning-summary > div { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.learning-summary span { color: #6e7580; font-size: 8px; }.learning-summary strong { overflow: hidden; font: 700 12px 'Manrope'; white-space: nowrap; text-overflow: ellipsis; }
 .day-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .day-card.next { border-color: rgba(128,240,220,.32); }
 .day-card.completed { opacity: .68; }
 .day-card-head { display: flex; justify-content: space-between; color: #69707b; font: 700 8px 'Manrope'; letter-spacing: 1.3px; }
 .day-card h3 { margin: 4px 0 12px; font: 700 13px 'Manrope'; }
+.lesson-type-badge { display: inline-flex; margin-bottom: 8px; padding: 3px 6px; border-radius: 5px; color: var(--violet); background: rgba(167,149,255,.09); font-size: 7px; }
 .day-description { min-height: 15px; margin: -8px 0 8px; color: #737a85; font-size: 8px; }
 .day-goal { display: flex; gap: 5px; margin-bottom: 9px; }
 .day-goal span { padding: 3px 5px; border-radius: 4px; color: #89919b; background: #0d0f13; font-size: 7px; }
@@ -246,6 +266,25 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .day-fields label span { position: absolute; right: 6px; bottom: 7px; color: #555c66; font-size: 7px; }
 .day-start { width: 100%; margin-top: 10px; padding: 7px 10px; font-size: 9px; }
 .error-banner { margin-bottom: 10px; padding: 10px; border: 1px solid rgba(255,111,116,.3); border-radius: 9px; color: #ffb7ba; background: rgba(255,111,116,.08); font-size: 10px; }
+
+.guided-stage { min-height: 390px; }
+.guided-target strong { font-size: clamp(64px,6vw,96px); }
+.guided-target small { margin-top: 8px; color: #b6addf; font-size: 14px; letter-spacing: 3px; }
+.note-reading { display: flex; gap: 8px; margin: 14px 0 5px; }
+.note-reading span { display: grid; place-items: center; min-width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 8px; color: #737a85; background: #11141a; font: 700 11px 'Manrope'; }
+.note-reading span.revealed { color: #07110f; border-color: var(--green); background: var(--green); }
+.chord-formula { margin: 7px 0; padding: 8px 12px; border-radius: 8px; color: #a8a1d3; background: rgba(167,149,255,.08); font-size: 9px; }
+.fingering-hint { color: #827baf; font-size: 9px; }
+.hands-instruction { display: flex; gap: 8px; margin: 7px 0; }
+.hands-instruction span { padding: 6px 9px; border-radius: 7px; color: #c8c2e9; background: rgba(167,149,255,.08); font-size: 9px; }
+.hands-instruction span:first-child { color: #a8dcf2; background: rgba(98,199,237,.09); }
+.learning-feedback { min-height: 24px; margin-top: 8px; color: #7c838e; font-size: 9px; }.learning-feedback.bad { color: var(--red); }
+.learning-progress { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }.learning-progress div { display: grid; padding: 8px; border-radius: 8px; background: #0d0f13; }.learning-progress span { color: #6c737e; font-size: 7px; }.learning-progress strong { font: 700 17px 'Manrope'; }
+.chord-roster { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; }
+.chord-roster div { display: flex; justify-content: space-between; padding: 6px; border-radius: 6px; color: #858c96; background: #0d0f13; font-size: 8px; }.chord-roster div.mastered { color: var(--green); }.chord-roster b { font-size: 7px; }
+.guide-stage-label { margin-top: 12px; color: var(--violet); font-size: 9px; }
+.chart-preview { display: grid; justify-items: center; gap: 14px; width: 100%; }.chart-preview > span { color: #777e89; font-size: 10px; }.chart-preview > div { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; width: min(620px,100%); }.chart-preview b { display: grid; place-items: center; padding: 13px; border: 1px solid var(--line); border-radius: 9px; font: 700 18px 'Manrope'; }.chart-preview > strong { color: var(--cyan); font: 800 55px 'Manrope'; }
+.panel textarea { width: 100%; min-height: 70px; margin-top: 9px; padding: 8px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 8px; color: #d8dce0; background: #0d0f13; font-size: 10px; }
 
 .focus-exit { position: fixed; top: 13px; right: 16px; z-index: 20; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: #7c838e; background: #111318; font-size: 9px; cursor: pointer; }
 .focus-mode { grid-template-columns: 1fr; }
