@@ -1,12 +1,9 @@
 import { useMemo, useState } from 'react';
+import { CURRICULUM_DAYS } from '../music/curriculum';
 import { curriculumCsv, downloadCsv, loadCurriculum, saveCurriculum } from '../services/storage';
 import type { CurriculumDayRecord } from '../types';
 
-export const CURRICULUM = [
-  'C、F、G、Am、Dm、Em', 'D、A、E、Bと各マイナー', 'Db、Eb、Gb、Ab、Bbと各マイナー', '転回形',
-  '左手ベース＋右手コード', '定番4コード進行', '第1回テスト', '7、maj7、m7、sus4、add9',
-  '分数コード', 'キー変更', '実曲練習', '初見コード練習', '苦手コード集中', '最終テスト',
-] as const;
+export const CURRICULUM = CURRICULUM_DAYS.map((day) => day.title);
 
 function initialRecords(): CurriculumDayRecord[] {
   const saved = loadCurriculum();
@@ -15,7 +12,9 @@ function initialRecords(): CurriculumDayRecord[] {
   });
 }
 
-export function CurriculumMode() {
+interface CurriculumModeProps { onStartDay: (day: number) => void }
+
+export function CurriculumMode({ onStartDay }: CurriculumModeProps) {
   const [records, setRecords] = useState(initialRecords);
   const [error, setError] = useState<string | null>(null);
   const completed = records.filter((record) => record.completed).length;
@@ -39,7 +38,10 @@ export function CurriculumMode() {
           <article className={`day-card ${record.completed ? 'completed' : ''} ${record.day === nextDay ? 'next' : ''}`} key={record.day}>
             <div className="day-card-head"><span>DAY {String(record.day).padStart(2, '0')}</span><label className="completion-check"><input type="checkbox" checked={record.completed} onChange={(event) => update(record.day, { completed: event.target.checked })} /><i>✓</i></label></div>
             <h3>{CURRICULUM[index]}</h3>
+            <p className="day-description">{CURRICULUM_DAYS[index]?.description}</p>
+            <div className="day-goal"><span>{CURRICULUM_DAYS[index]?.questionCount}問</span><span>合格 {CURRICULUM_DAYS[index]?.passAccuracy}%</span><span>平均 {(CURRICULUM_DAYS[index]!.maxAverageMs / 1000).toFixed(1)}秒以内</span></div>
             <div className="day-fields"><label>練習時間<input type="number" min="0" max="600" value={record.minutes} onChange={(event) => update(record.day, { minutes: Number(event.target.value) })} /><span>分</span></label><label>正解率<input type="number" min="0" max="100" value={record.accuracy} onChange={(event) => update(record.day, { accuracy: Number(event.target.value) })} /><span>%</span></label><label>平均反応<input type="number" min="0" max="60000" value={record.averageMs} onChange={(event) => update(record.day, { averageMs: Number(event.target.value) })} /><span>ms</span></label></div>
+            <button className="button secondary day-start" type="button" onClick={() => onStartDay(record.day)}>この日の練習を開始 →</button>
           </article>
         ))}
       </div>

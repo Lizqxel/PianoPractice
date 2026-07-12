@@ -1,9 +1,10 @@
-import type { ChordAnalysis, ChordTarget, Inversion, PitchClass } from '../types';
+import type { ChordAnalysis, ChordTarget, HandAnalysis, Inversion, PitchClass } from '../types';
 import {
   ALL_QUALITIES,
   CHORD_DEFINITIONS,
   chordName,
   chordPitchClasses,
+  keyPrefersFlats,
   pitchClassName,
   toPitchClass,
 } from './chordDefinitions';
@@ -16,7 +17,7 @@ function setDifference(left: readonly PitchClass[], right: readonly PitchClass[]
   return left.filter((pitch) => !right.includes(pitch));
 }
 
-function inversionFor(target: ChordTarget, notes: readonly number[]): Inversion | null {
+export function inversionFor(target: ChordTarget, notes: readonly number[]): Inversion | null {
   if (notes.length === 0) return null;
   const bass = toPitchClass(Math.min(...notes));
   const ordered = CHORD_DEFINITIONS[target.quality].intervals.map((interval) => toPitchClass(target.root + interval));
@@ -58,6 +59,34 @@ export function analyzeChord(target: ChordTarget, notes: readonly number[]): Cho
     inversion: detected?.inversion ?? inversionFor(target, notes),
     missing: setDifference(expected, played),
     extra: setDifference(played, expected),
+  };
+}
+
+export function analyzeHands(target: ChordTarget, notes: readonly number[], splitNote = 60): HandAnalysis {
+  const leftNotes = notes.filter((note) => note < splitNote);
+  const rightNotes = notes.filter((note) => note >= splitNote);
+  const chordOnly: ChordTarget = { root: target.root, quality: target.quality };
+  const chordNotes = rightNotes.length >= 3 ? rightNotes : target.bass === undefined ? notes : rightNotes;
+  const rightHand = analyzeChord(chordOnly, chordNotes);
+  const bassSource = leftNotes.length > 0 ? leftNotes : notes;
+  const leftBass = bassSource.length > 0 ? toPitchClass(Math.min(...bassSource)) : null;
+  const expectedBass = target.bass ?? null;
+  const bassCorrect = expectedBass === null || leftBass === expectedBass;
+  const bassMessage = expectedBass === null
+    ? null
+    : leftBass === null
+      ? 'ベース不足'
+      : bassCorrect
+        ? null
+        : `正しいベースは${pitchClassName(expectedBass, keyPrefersFlats(target.root))}`;
+  return {
+    isExact: rightHand.isExact && bassCorrect,
+    rightHand,
+    rightInversion: rightHand.inversion,
+    leftBass,
+    expectedBass,
+    bassCorrect,
+    bassMessage,
   };
 }
 

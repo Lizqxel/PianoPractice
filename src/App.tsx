@@ -10,6 +10,7 @@ import { SixtySecondMode } from './modes/SixtySecondMode';
 import { CurriculumMode } from './modes/CurriculumMode';
 import { AudioEngine } from './services/audioEngine';
 import { MidiService } from './services/midiService';
+import { loadCurriculum, saveDailySessionResult } from './services/storage';
 import type { AppMode, MidiNoteEvent } from './types';
 
 const NAV: readonly { mode: AppMode; icon: string; label: string }[] = [
@@ -31,6 +32,9 @@ export default function App() {
   const [volume, setVolume] = useState(35);
   const [muted, setMuted] = useState(false);
   const [focus, setFocus] = useState(false);
+  const [splitNote, setSplitNote] = useState(60);
+  const [metronomeBpm, setMetronomeBpm] = useState(80);
+  const [activeDay, setActiveDay] = useState<number | null>(null);
   const activeRef = useRef(activeNotes);
   activeRef.current = activeNotes;
 
@@ -92,27 +96,32 @@ export default function App() {
 
   const noteArray = [...activeNotes].sort((a, b) => a - b);
   const modeTitle = NAV.find((item) => item.mode === mode)?.label ?? 'Chord Sprint';
+  const todayDay = loadCurriculum().find((record) => !record.completed)?.day ?? 14;
+  const navigate = (nextMode: AppMode) => {
+    if (nextMode !== 'sprint') setActiveDay(null);
+    setMode(nextMode);
+  };
 
   return (
     <div className={`app-shell ${focus ? 'focus-mode' : ''}`}>
       <aside className="app-sidebar">
-        <button className="brand" type="button" onClick={() => setMode('home')}><span className="brand-mark">CS</span><span><strong>Chord Sprint</strong><small>PIANO PRACTICE</small></span></button>
-        <nav>{NAV.map((item) => <button className={mode === item.mode ? 'active' : ''} type="button" key={item.mode} onClick={() => setMode(item.mode)}><i>{item.icon}</i><span>{item.label}</span></button>)}</nav>
+        <button className="brand" type="button" onClick={() => navigate('home')}><span className="brand-mark">CS</span><span><strong>Chord Sprint</strong><small>PIANO PRACTICE</small></span></button>
+        <nav>{NAV.map((item) => <button className={mode === item.mode ? 'active' : ''} type="button" key={item.mode} onClick={() => navigate(item.mode)}><i>{item.icon}</i><span>{item.label}</span></button>)}</nav>
         <div className="sidebar-spacer" />
-        <Metronome audio={audio} />
+        <Metronome audio={audio} bpm={metronomeBpm} onBpmChange={setMetronomeBpm} />
         <section className="audio-controls"><div className="section-title-row"><div><span className="eyebrow">INSTRUMENT</span><h3>ピアノ音源</h3></div><button className={`icon-toggle ${muted ? 'muted' : ''}`} type="button" onClick={() => { const next = !muted; setMuted(next); audio.setMuted(next); }} aria-label={muted ? 'ミュート解除' : 'ミュート'}>{muted ? '×' : '◖'}</button></div><label className="range-label">音量 <span>{volume}%</span></label><input type="range" min="0" max="100" value={volume} onChange={(event) => { const next = Number(event.target.value); setVolume(next); audio.setVolume(next / 100); }} /></section>
       </aside>
       <main>
         <header className="topbar"><div><span className="topbar-caption">PRACTICE /</span><strong>{modeTitle}</strong></div><div className="topbar-actions"><MidiPanel supported={midi.supported} connected={Boolean(selectedMidi)} devices={devices} selectedId={selectedMidi} error={midiError} onConnect={() => void connectMidi()} onSelect={selectMidi} /><button className={`button secondary compact focus-button ${focus ? 'active' : ''}`} type="button" onClick={() => setFocus((value) => !value)}>◎ {focus ? '集中モードを終了' : '集中モード'}</button></div></header>
         <div className="content-area">
-          {mode === 'home' && <HomeMode onNavigate={setMode} />}
-          {mode === 'sprint' && <SprintMode notes={noteArray} />}
-          {mode === 'progression' && <ProgressionMode notes={noteArray} />}
+          {mode === 'home' && <HomeMode onNavigate={navigate} />}
+          {mode === 'sprint' && <SprintMode notes={noteArray} curriculumDay={activeDay ?? todayDay} dailySession={activeDay !== null} splitNote={splitNote} onDailyComplete={(result) => { saveDailySessionResult(result); setActiveDay(null); setMode('curriculum'); }} />}
+          {mode === 'progression' && <ProgressionMode notes={noteArray} audio={audio} bpm={metronomeBpm} onBpmChange={setMetronomeBpm} />}
           {mode === 'sixty' && <SixtySecondMode notes={noteArray} />}
-          {mode === 'curriculum' && <CurriculumMode />}
+          {mode === 'curriculum' && <CurriculumMode onStartDay={(day) => { setActiveDay(day); setMode('sprint'); }} />}
         </div>
         {mode !== 'curriculum' && (
-          <section className="keyboard-dock"><CurrentChord notes={noteArray} /><PianoKeyboard activeNotes={activeNotes} onNoteOn={noteOn} onNoteOff={noteOff} /></section>
+          <section className="keyboard-dock"><CurrentChord notes={noteArray} splitNote={splitNote} onSplitNoteChange={setSplitNote} /><PianoKeyboard activeNotes={activeNotes} onNoteOn={noteOn} onNoteOff={noteOff} /></section>
         )}
         {focus && <button className="focus-exit" type="button" onClick={() => setFocus(false)}>Esc · 集中モードを終了</button>}
       </main>
