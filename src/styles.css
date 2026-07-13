@@ -232,7 +232,7 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .curriculum-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px 24px; }
 .curriculum-header h2 { margin: 8px 0 5px; font: 800 30px 'Manrope'; letter-spacing: -1.2px; }
 .curriculum-header p { margin: 0; color: #7a818c; font-size: 10px; }
-.progress-ring { display: grid; place-items: center; width: 86px; height: 86px; border-radius: 50%; background: conic-gradient(var(--cyan) var(--progress), #242831 0); }
+.progress-ring { position: relative; display: grid; place-items: center; width: 86px; height: 86px; border-radius: 50%; background: conic-gradient(var(--cyan) var(--progress), #242831 0); }
 .progress-ring::before { content: ''; position: absolute; width: 72px; height: 72px; border-radius: 50%; background: var(--bg); }
 .progress-ring div { position: relative; display: grid; text-align: center; }
 .progress-ring strong { font: 700 17px 'Manrope'; }
