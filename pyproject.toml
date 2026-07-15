@@ -1,0 +1,30 @@
+[project]
+name = "piano-practice-local"
+version = "0.1.0"
+description = "Local MuScriptor and YouTube search service for PianoPractice"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
+  "muscriptor==0.2.1",
+  "python-dotenv>=1.1,<2",
+  "torch==2.13.0",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["local_server/tests"]
+pythonpath = ["."]

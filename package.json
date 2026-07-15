@@ -7,9 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "local:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-local.ps1",
+    "local:start": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
+    "local:test": "uv run pytest"
   },
   "dependencies": {
+    "@tonejs/midi": "^2.0.28",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

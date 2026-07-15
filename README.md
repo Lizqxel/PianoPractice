@@ -1,6 +1,6 @@
 # Chord Sprint
 
-コードネームを見て素早く鍵盤を押さえるための、MIDIキーボード対応ピアノコード練習Webアプリです。バックエンドやアカウントは使わず、履歴はブラウザの `localStorage` に保存します。
+コードネームを見て素早く鍵盤を押さえるための、MIDIキーボード対応ピアノコード練習Webアプリです。通常の練習履歴と設定はブラウザの `localStorage` に保存します。「曲で弾く」のMP3自動変換とYouTubeタイトル検索だけは、このPC上のローカルサービスを使用します。
 
 公開版: **https://lizqxel.github.io/PianoPractice/**
 
@@ -21,6 +21,47 @@ npm run dev
 npm test
 npm run build
 ```
+
+## 「曲で弾く」
+
+原曲を聴きながら現在・次・その次のコード、曲全体のコード譜、鍵盤上の押さえ方を表示します。既定の「コード譜」方式では曲名からU-FRET、ChordWiki、楽器.meなどを探し、利用できるコード記号を入力します。動画の再生・停止・シークに表示が追従し、コード譜の小節を押して動画をその位置へ移動することもできます。
+
+コード進行は `G#m | C#m | F# | B` のように小節を `|` で区切ります。1小節に複数ある場合は `G Am | F G` のように空白で区切ると等分されます。より正確に合わせる場合は次のように開始時刻を指定できます。
+
+```text
+[0:12.5] G#m
+[0:16.8] C#m
+```
+
+外部サイトの歌詞・楽譜はアプリへ自動複製しません。参照元URLを任意で保存すると、練習画面から元ページを開けます。手元のMP3/WAV/FLAC/OGG/M4AをMuScriptorでMIDI化する「AI解析」と、MIDIを直接読み込む方式も補助機能として残しています。音声とMIDIは外部へアップロードせず、このPC内だけで処理します。
+
+### AI解析・YouTubeタイトル検索を使うローカル版
+
+初回だけPowerShellで次を実行してください。
+
+```powershell
+npm run local:setup
+```
+
+セットアップ中にブラウザが開くので、無料のHugging FaceアカウントでMuScriptorモデルの非商用ライセンスへ同意し、ターミナルでログインします。2回目以降は次だけで起動できます。
+
+```powershell
+npm run local:start
+```
+
+ローカルAPIのモックテストは、セットアップ後に `npm run local:test` で実行できます（モデルのダウンロードや推論は行いません）。
+
+起動後、ChromeまたはEdgeで `http://127.0.0.1:8222` が自動的に開きます。既定はRTX GPU向けの `medium` / `cuda` です。モデルは起動中には切り替わりません。変更する場合は `.env` の `MUSCRIPTOR_MODEL=large` などを書き換えて再起動してください。
+
+YouTubeは公式プレイヤーでの原曲再生専用です。音声のダウンロードや抽出は行いません。URL貼付は設定不要です。タイトル検索も使う場合は、Google CloudでYouTube Data API v3のキーを作成し、`.env` に次を設定します。
+
+```dotenv
+YOUTUBE_API_KEY=your_api_key
+```
+
+YouTubeと解析用のMP3/MIDIには、同じ録音・同じ編集版を選んでください。イントロなどの固定ずれは練習画面の同期補正で直せます。
+
+MuScriptorのコードはMIT、モデル重みはCC BY-NC 4.0です。このローカル変換機能は個人・非商用利用を前提としています。
 
 ## MIDIキーボードの接続
 
@@ -62,6 +103,7 @@ Windowsでは仮想MIDIポートを作成し、次のように接続します。
 - 外部DAW音源: Note On/Off、Velocity、チャンネル、CC、サステイン、Pitch Bend、AftertouchをMIDI出力へ転送
 - メトロノーム: アクセント、音量、4カウント
 - 集中モード
+- 曲で弾く: 外部コード譜検索、動画追従コード譜、コード先読み、自動転回形、右手／両手判定、速度変更、A/Bループ、同期補正、MP3自動MIDI化、YouTube URL／タイトル検索
 
 ## 14日間プランの流れ
 
@@ -115,4 +157,4 @@ Web MIDI APIを利用するため、FirefoxとSafariは対象外です。MIDI権
 3. `npm run build`
 4. `dist` をGitHub Pagesへデプロイ
 
-Viteの `base` はリポジトリ名に合わせて `/PianoPractice/` に設定されています。手動で再実行する場合は、GitHubの **Actions → Deploy to GitHub Pages → Run workflow** を使用してください。
+Viteの公開パスは相対指定のため、ローカル配信と `/PianoPractice/` 配下のGitHub Pagesの両方で同じビルドを利用できます。公開版ではYouTube URLまたは手元の音声＋コード譜、MIDI読込を利用できます。MP3自動MIDI変換とYouTubeタイトル検索にはローカル版が必要です。手動で再実行する場合は、GitHubの **Actions → Deploy to GitHub Pages → Run workflow** を使用してください。

@@ -8,6 +8,7 @@ import { HomeMode } from './modes/HomeMode';
 import { SprintMode } from './modes/SprintMode';
 import { ProgressionMode } from './modes/ProgressionMode';
 import { SixtySecondMode } from './modes/SixtySecondMode';
+import { SongPracticeMode } from './modes/SongPracticeMode';
 import { CurriculumMode } from './modes/CurriculumMode';
 import { LessonSessionRouter } from './modes/LessonSessionRouter';
 import { emptyKeyboardGuide } from './modes/GuidedChordLearningMode';
@@ -27,6 +28,7 @@ const NAV: readonly { mode: AppMode; icon: string; label: string }[] = [
   { mode: 'sprint', icon: '⌁', label: 'コード瞬発' },
   { mode: 'progression', icon: '↗', label: 'コード進行' },
   { mode: 'sixty', icon: '60', label: '60秒チェンジ' },
+  { mode: 'songPractice', icon: '♪', label: '曲で弾く' },
   { mode: 'curriculum', icon: '✓', label: '14日間プラン' },
 ];
 
@@ -177,6 +179,7 @@ export default function App() {
           {mode === 'sprint' && <SprintMode notes={noteArray} curriculumDay={todayDay} dailySession={false} splitNote={splitNote} onDailyComplete={(result) => { saveDailySessionResult(result); setMode('curriculum'); }} />}
           {mode === 'progression' && <ProgressionMode notes={noteArray} audio={audio} bpm={metronomeBpm} onBpmChange={setMetronomeBpm} onSessionStart={() => { setMetronomeRunning(false); allSoundOff(); }} onAllNotesOff={allSoundOff} metronomeVolume={metronomeEnabled ? metronomeVolume : 0} onMetronomeVolumeChange={setMetronomeVolume} />}
           {mode === 'sixty' && <SixtySecondMode notes={noteArray} onAllNotesOff={allSoundOff} />}
+          {mode === 'songPractice' && <SongPracticeMode notes={noteArray} splitNote={splitNote} onGuideChange={setKeyboardGuide} onAllNotesOff={allSoundOff} />}
           {mode === 'curriculum' && <CurriculumMode onStartDay={(day) => { void audio.resume(); setActiveDay(day); setKeyboardGuide(emptyKeyboardGuide()); setMode('lesson'); }} />}
           {mode === 'lesson' && activeDay !== null && <LessonSessionRouter day={activeDay} notes={noteArray} splitNote={splitNote} audio={audio} bpm={metronomeBpm} onBpmChange={setMetronomeBpm} metronomeVolume={metronomeEnabled ? metronomeVolume : 0} onMetronomeVolumeChange={setMetronomeVolume} onGuideChange={setKeyboardGuide} onSessionStart={() => { setMetronomeRunning(false); allSoundOff(); }} onAllNotesOff={allSoundOff} onComplete={(result) => { allSoundOff(); saveDailySessionResult(result); setKeyboardGuide(emptyKeyboardGuide()); setActiveDay(null); setMode('curriculum'); }} />}
         </div>

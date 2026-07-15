@@ -4,3 +4,10 @@ dist/
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.local-server.*.log
+.playwright-cli/
+output/playwright/

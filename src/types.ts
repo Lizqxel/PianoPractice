@@ -54,7 +54,7 @@ export interface MidiRawEvent {
 
 export type SoundMode = 'internal' | 'external' | 'both';
 
-export type AppMode = 'home' | 'sprint' | 'progression' | 'sixty' | 'curriculum' | 'lesson';
+export type AppMode = 'home' | 'sprint' | 'progression' | 'sixty' | 'songPractice' | 'curriculum' | 'lesson';
 
 export interface SprintStats {
   attempts: number;
@@ -113,4 +113,88 @@ export interface KeyboardGuideState {
   extraActiveNotes: readonly number[];
   fingering: Readonly<Record<number, number>>;
   spelling: 'sharp' | 'flat';
+}
+
+export type SongChordDetail = 'simple' | 'faithful';
+
+export type SongHandMode = 'right' | 'both';
+
+export interface SongNote {
+  id: string;
+  pitch: number;
+  start: number;
+  end: number;
+  velocity: number;
+  trackId: string;
+  instrument: string;
+}
+
+export interface SongTrack {
+  id: string;
+  name: string;
+  instrument: string;
+  isDrum: boolean;
+  isVoice: boolean;
+  enabled: boolean;
+  notes: readonly SongNote[];
+}
+
+export interface ChordSegment {
+  start: number;
+  end: number;
+  faithful: ChordTarget | null;
+  simple: ChordTarget | null;
+  confidence: number;
+  measure?: number;
+}
+
+export interface ChordChartSource {
+  label: string;
+  url: string;
+}
+
+export type PlaybackSource =
+  | { kind: 'local'; name: string; url: string; duration?: number }
+  | { kind: 'youtube'; videoId: string; title?: string; channelTitle?: string; duration?: number };
+
+export interface SongProject {
+  title: string;
+  playback: PlaybackSource;
+  tracks: readonly SongTrack[];
+  chords: readonly ChordSegment[];
+  duration: number;
+  midiBytes?: Uint8Array;
+  chordSource?: ChordChartSource;
+}
+
+export type TranscriptionEvent =
+  | { type: 'progress'; completed: number; total: number }
+  | { type: 'start'; pitch: number; start_time: number; index: number; instrument: string }
+  | { type: 'end'; end_time: number; start_event_index: number }
+  | { type: 'midi'; data: string };
+
+export interface YouTubeSearchResult {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnailUrl: string;
+}
+
+export interface LocalServiceStatus {
+  status: 'ok';
+  model: string;
+  device: string;
+  cudaAvailable: boolean;
+  youtubeSearchConfigured: boolean;
+}
+
+export interface PlaybackController {
+  play(): void | Promise<void>;
+  pause(): void;
+  seek(seconds: number): void;
+  setRate(rate: number): void;
+  getCurrentTime(): number;
+  getDuration(): number;
+  getAvailableRates(): readonly number[];
+  isPlaying(): boolean;
 }
