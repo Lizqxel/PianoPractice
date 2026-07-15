@@ -371,6 +371,14 @@ select { color: #d4d8dd; border: 1px solid var(--line-strong); border-radius: 7p
 .youtube-results span { display: grid; gap: 3px; min-width: 0; }
 .youtube-results strong, .youtube-results small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .youtube-results strong { font-size: 8px; }.youtube-results small { color: #6e7580; font-size: 7px; }
+.songle-credit a { color: var(--cyan); font-weight: 700; text-decoration: none; }
+.songle-results > button { grid-template-columns: 68px minmax(0, 1fr) auto; transition: border-color 140ms ease, background-color 140ms ease, transform 140ms cubic-bezier(.23,1,.32,1); }
+.songle-results > button > b { padding-right: 5px; color: var(--cyan); font: 700 7px 'Manrope'; white-space: nowrap; }
+.songle-results > button:active { transform: scale(.98); }
+.songle-results > button:disabled { cursor: wait; opacity: .62; }
+@media (hover: hover) and (pointer: fine) {
+  .songle-results > button:not(:disabled):hover { border-color: rgba(128,240,220,.35); background: rgba(128,240,220,.045); }
+}
 .local-service-state { display: flex; align-items: center; gap: 6px; margin: 11px 0 8px; color: #767d88; font-size: 8px; }
 .local-service-state i { width: 6px; height: 6px; border-radius: 50%; background: #535965; }
 .local-service-state i.online { background: var(--green); box-shadow: 0 0 0 3px rgba(88,215,155,.1); }

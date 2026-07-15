@@ -25,8 +25,8 @@ describe('YouTube URL解析', () => {
 
 describe('コード簡略化', () => {
   it.each<[ChordQuality, ChordQuality]>([
-    ['major', 'major'], ['minor', 'minor'], ['dim', 'dim'], ['sus4', 'sus4'],
-    ['7', 'major'], ['maj7', 'major'], ['m7', 'minor'], ['add9', 'major'],
+    ['major', 'major'], ['minor', 'minor'], ['dim', 'dim'], ['aug', 'major'], ['sus2', 'sus2'], ['sus4', 'sus4'],
+    ['6', 'major'], ['m6', 'minor'], ['7', 'major'], ['maj7', 'major'], ['m7', 'minor'], ['mMaj7', 'minor'], ['add9', 'major'],
   ])('%sを%sへ変換する', (quality, expected) => {
     expect(simplifySongChord({ root: 0, quality, bass: 4 })).toEqual({ root: 0, quality: expected });
   });

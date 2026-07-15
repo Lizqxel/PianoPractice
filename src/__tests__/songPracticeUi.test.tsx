@@ -62,4 +62,36 @@ describe('曲で弾くセットアップ', () => {
     expect(screen.getByLabelText('コード譜プレビュー')).toHaveTextContent('G#m');
     expect(screen.getByLabelText('コード譜プレビュー')).toHaveTextContent('C#m');
   });
+
+  it('タイトル検索の候補を選ぶだけでコードを取得して練習を開始する', async () => {
+    vi.mocked(globalThis.fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/songs/search.json')) return new Response(JSON.stringify([{
+        id: 42,
+        title: 'Automatic Song',
+        artist: { name: 'Test Artist' },
+        permalink: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        url: 'https://songle.jp/songs/test',
+        duration: 120000,
+      }]), { status: 200 });
+      if (url.includes('/song/chord.json')) return new Response(JSON.stringify({ chords: [
+        { start: 0, duration: 2000, name: 'C' },
+        { start: 2000, duration: 2000, name: 'G7' },
+      ] }), { status: 200 });
+      if (url.includes('/song/beat.json')) return new Response(JSON.stringify({ beats: [
+        { start: 0, position: 1 }, { start: 1000, position: 2 }, { start: 2000, position: 3 },
+      ] }), { status: 200 });
+      return new Response('not found', { status: 404 });
+    });
+
+    render(<SongPracticeMode notes={[]} splitNote={60} onGuideChange={vi.fn()} onAllNotesOff={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('タイトルでコード検索'), { target: { value: 'Automatic Song' } });
+    fireEvent.click(screen.getByRole('button', { name: '検索' }));
+    const candidate = await screen.findByRole('button', { name: /Automatic Song.*選んで開始/ });
+    fireEvent.click(candidate);
+    expect(await screen.findByRole('heading', { name: 'Automatic Song' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /参照元.*Songle/ })).toHaveAttribute('href', 'https://songle.jp/songs/test');
+    expect(screen.getByRole('region', { name: '曲のコード譜' })).toHaveTextContent('C');
+    expect(screen.getByRole('region', { name: '曲のコード譜' })).toHaveTextContent('G');
+  });
 });

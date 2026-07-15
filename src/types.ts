@@ -1,6 +1,6 @@
 export type PitchClass = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
-export type ChordQuality = 'major' | 'minor' | 'dim' | 'sus4' | '7' | 'maj7' | 'm7' | 'add9';
+export type ChordQuality = 'major' | 'minor' | 'dim' | 'aug' | 'sus2' | 'sus4' | '6' | 'm6' | '7' | 'maj7' | 'm7' | 'mMaj7' | 'add9';
 
 export interface ChordDefinition {
   quality: ChordQuality;
@@ -178,6 +178,17 @@ export interface YouTubeSearchResult {
   title: string;
   channelTitle: string;
   thumbnailUrl: string;
+}
+
+export interface SongleSearchResult {
+  id: number;
+  title: string;
+  artist: string;
+  videoId: string;
+  youtubeUrl: string;
+  songleUrl: string;
+  thumbnailUrl: string;
+  duration: number;
 }
 
 export interface LocalServiceStatus {

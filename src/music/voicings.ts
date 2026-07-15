@@ -48,7 +48,8 @@ export function sameMidiNotes(played: readonly number[], expected: readonly numb
 }
 
 export function bestInversion(previous: readonly number[], target: ChordTarget): { inversion: InversionIndex; notes: number[]; movement: number } {
-  const candidates = ([0, 1, 2] as InversionIndex[]).map((inversion) => {
+  const inversions = ([0, 1, 2, 3] as InversionIndex[]).slice(0, CHORD_DEFINITIONS[target.quality].intervals.length);
+  const candidates = inversions.map((inversion) => {
     const notes = recommendedVoicing(target, inversion);
     return { inversion, notes, movement: totalVoiceMovement(previous, notes) };
   });

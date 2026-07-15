@@ -3,7 +3,7 @@ import type { ChordQuality, ChordSegment, ChordTarget, PitchClass, SongChordDeta
 
 const FRAME_SECONDS = 0.5;
 const MIN_SEGMENT_SECONDS = 0.5;
-const QUALITIES = Object.keys(CHORD_DEFINITIONS) as ChordQuality[];
+const QUALITIES: readonly ChordQuality[] = ['major', 'minor', 'dim', 'sus4', '7', 'maj7', 'm7', 'add9'];
 
 interface FrameChord {
   start: number;
@@ -19,9 +19,9 @@ interface Candidate {
 
 export function simplifySongChord(target: ChordTarget | null): ChordTarget | null {
   if (!target) return null;
-  const quality: ChordQuality = target.quality === 'm7'
+  const quality: ChordQuality = target.quality === 'm7' || target.quality === 'm6' || target.quality === 'mMaj7'
     ? 'minor'
-    : target.quality === '7' || target.quality === 'maj7' || target.quality === 'add9'
+    : target.quality === '7' || target.quality === 'maj7' || target.quality === 'add9' || target.quality === '6' || target.quality === 'aug'
       ? 'major'
       : target.quality;
   return {

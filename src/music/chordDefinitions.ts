@@ -7,10 +7,15 @@ export const CHORD_DEFINITIONS: Record<ChordQuality, ChordDefinition> = {
   major: { quality: 'major', symbol: '', label: 'メジャー', intervals: [0, 4, 7] },
   minor: { quality: 'minor', symbol: 'm', label: 'マイナー', intervals: [0, 3, 7] },
   dim: { quality: 'dim', symbol: 'dim', label: 'ディミニッシュ', intervals: [0, 3, 6] },
+  aug: { quality: 'aug', symbol: 'aug', label: 'オーギュメント', intervals: [0, 4, 8] },
+  sus2: { quality: 'sus2', symbol: 'sus2', label: 'サスツー', intervals: [0, 2, 7] },
   sus4: { quality: 'sus4', symbol: 'sus4', label: 'サスフォー', intervals: [0, 5, 7] },
+  '6': { quality: '6', symbol: '6', label: 'シックス', intervals: [0, 4, 7, 9] },
+  m6: { quality: 'm6', symbol: 'm6', label: 'マイナーシックス', intervals: [0, 3, 7, 9] },
   '7': { quality: '7', symbol: '7', label: 'セブンス', intervals: [0, 4, 7, 10] },
   maj7: { quality: 'maj7', symbol: 'maj7', label: 'メジャーセブンス', intervals: [0, 4, 7, 11] },
   m7: { quality: 'm7', symbol: 'm7', label: 'マイナーセブンス', intervals: [0, 3, 7, 10] },
+  mMaj7: { quality: 'mMaj7', symbol: 'mMaj7', label: 'マイナーメジャーセブンス', intervals: [0, 3, 7, 11] },
   add9: { quality: 'add9', symbol: 'add9', label: 'アドナインス', intervals: [0, 2, 4, 7] },
 };
 
@@ -66,9 +71,11 @@ export function transpose(root: PitchClass, semitones: number): PitchClass {
 
 export function parseRoot(name: string): PitchClass {
   const normalized = name.replace('♭', 'b').replace('♯', '#');
-  const index = [...NOTE_NAMES_FLAT].findIndex((note) => note === normalized);
-  if (index >= 0) return index as PitchClass;
-  const sharpIndex = [...NOTE_NAMES_SHARP].findIndex((note) => note === normalized);
-  if (sharpIndex >= 0) return sharpIndex as PitchClass;
+  const match = /^([A-G])([#b]?)$/.exec(normalized);
+  if (match) {
+    const natural: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+    const accidental = match[2] === '#' ? 1 : match[2] === 'b' ? -1 : 0;
+    return toPitchClass(natural[match[1]!]! + accidental);
+  }
   throw new Error(`不明な音名です: ${name}`);
 }

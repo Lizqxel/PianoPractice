@@ -8,7 +8,8 @@ import { parseSongMidi, setSongTrackEnabled } from '../music/songMidi';
 import { buildTimedChordChart, chartPreviewLabel } from '../music/timedChordChart';
 import { bestInversion, fingeringMap, recommendedBassNote } from '../music/voicings';
 import { createChordSourceSearchLinks } from '../services/chordSources';
-import { getLocalServiceStatus, searchYouTube, transcribeAudio, validateTranscriptionFile } from '../services/transcriptionClient';
+import { loadSongleChordChart, searchSongleSongs } from '../services/songle';
+import { getLocalServiceStatus, transcribeAudio, validateTranscriptionFile } from '../services/transcriptionClient';
 import { parseYouTubeVideoId } from '../services/youtube';
 import { emptyKeyboardGuide } from './GuidedChordLearningMode';
 import type {
@@ -21,9 +22,9 @@ import type {
   PlaybackSource,
   SongChordDetail,
   SongHandMode,
+  SongleSearchResult,
   SongProject,
   SongTrack,
-  YouTubeSearchResult,
 } from '../types';
 
 interface Props {
@@ -54,8 +55,9 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
   const [youtubeInput, setYoutubeInput] = useState('');
   const [youtubeSource, setYoutubeSource] = useState<Extract<PlaybackSource, { kind: 'youtube' }> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<YouTubeSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SongleSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [importingSongId, setImportingSongId] = useState<number | null>(null);
   const [chordQuery, setChordQuery] = useState('');
   const [chartText, setChartText] = useState('');
   const [chartBpm, setChartBpm] = useState(100);
@@ -109,6 +111,20 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
     onGuideChange(emptyKeyboardGuide());
     playbackRef.current?.pause();
   }, [localAudioUrl, onGuideChange]);
+
+  const openPractice = (nextProject: SongProject) => {
+    hitsRef.current = new Set();
+    setSuccessCount(0);
+    setHitVersion((value) => value + 1);
+    setCurrentTime(0);
+    setLoopA(null);
+    setLoopB(null);
+    setProject(nextProject);
+    setPhase('practice');
+    setPlayerReady(false);
+    setPlaying(false);
+    onAllNotesOff();
+  };
 
   useEffect(() => {
     localStorage.setItem(DETAIL_KEY, detail);
@@ -234,9 +250,48 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
     if (!query) return;
     setSearching(true);
     setError(null);
-    try { setSearchResults(await searchYouTube(query)); }
-    catch (searchError) { setError(searchError instanceof Error ? searchError.message : 'YouTube検索に失敗しました。'); }
+    try {
+      const results = await searchSongleSongs(query);
+      setSearchResults(results);
+      if (results.length === 0) setError('コード付きのYouTube候補が見つかりませんでした。曲名とアーティスト名を変えてお試しください。');
+    }
+    catch (searchError) { setError(searchError instanceof Error ? searchError.message : '曲の検索に失敗しました。'); }
     finally { setSearching(false); }
+  };
+
+  const chooseSongleResult = async (result: SongleSearchResult) => {
+    setImportingSongId(result.id);
+    setError(null);
+    try {
+      const chart = await loadSongleChordChart(result);
+      const playback: Extract<PlaybackSource, { kind: 'youtube' }> = {
+        kind: 'youtube',
+        videoId: result.videoId,
+        title: result.title,
+        channelTitle: result.artist,
+        duration: result.duration,
+      };
+      setSourceKind('youtube');
+      setAnalysisKind('chart');
+      setYoutubeSource(playback);
+      setYoutubeInput(result.youtubeUrl);
+      setChordQuery(`${result.title} ${result.artist}`);
+      setChartSourceUrl(result.songleUrl);
+      setTracks([]);
+      setMidiBytes(undefined);
+      openPractice({
+        title: result.title,
+        playback,
+        tracks: [],
+        chords: chart.segments,
+        duration: chart.duration,
+        chordSource: { label: 'Songle', url: result.songleUrl },
+      });
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : 'コード譜の取得に失敗しました。');
+    } finally {
+      setImportingSongId(null);
+    }
   };
 
   const loadAnalysis = async () => {
@@ -303,17 +358,7 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
       ...(midiBytes ? { midiBytes } : {}),
       ...(chordSource ? { chordSource } : {}),
     };
-    hitsRef.current = new Set();
-    setSuccessCount(0);
-    setHitVersion((value) => value + 1);
-    setCurrentTime(0);
-    setLoopA(null);
-    setLoopB(null);
-    setProject(nextProject);
-    setPhase('practice');
-    setPlayerReady(false);
-    setPlaying(false);
-    onAllNotesOff();
+    openPractice(nextProject);
   };
 
   const handlePlayerReady = useCallback((rates: readonly number[], duration: number) => {
@@ -387,8 +432,9 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
         setSearchQuery={setSearchQuery}
         performSearch={() => void performSearch()}
         searching={searching}
+        importingSongId={importingSongId}
         searchResults={searchResults}
-        chooseSearchResult={(result) => { setYoutubeSource({ kind: 'youtube', videoId: result.videoId, title: result.title, channelTitle: result.channelTitle }); setYoutubeInput(`https://www.youtube.com/watch?v=${result.videoId}`); setChordQuery(result.title); setError(null); setTracks([]); setMidiBytes(undefined); }}
+        chooseSearchResult={(result) => void chooseSongleResult(result)}
         chordQuery={chordQuery}
         setChordQuery={setChordQuery}
         chordSourceLinks={chordSourceLinks}
@@ -510,8 +556,9 @@ interface SetupProps {
   setSearchQuery: (value: string) => void;
   performSearch: () => void;
   searching: boolean;
-  searchResults: readonly YouTubeSearchResult[];
-  chooseSearchResult: (result: YouTubeSearchResult) => void;
+  importingSongId: number | null;
+  searchResults: readonly SongleSearchResult[];
+  chooseSearchResult: (result: SongleSearchResult) => void;
   chordQuery: string;
   setChordQuery: (value: string) => void;
   chordSourceLinks: ReturnType<typeof createChordSourceSearchLinks>;
@@ -564,9 +611,9 @@ function SongSetup(props: SetupProps) {
             <div className="youtube-setup">
               <label>URLを貼る<div><input aria-label="YouTube URL" value={props.youtubeInput} placeholder="https://www.youtube.com/watch?v=..." onChange={(event) => props.setYoutubeInput(event.target.value)} /><button type="button" onClick={props.chooseYouTubeFromInput}>選択</button></div></label>
               {props.youtubeSource && <div className="selected-youtube"><span>選択中</span><strong>{props.youtubeSource.title}</strong><small>{props.youtubeSource.videoId}</small></div>}
-              <form onSubmit={(event) => { event.preventDefault(); props.performSearch(); }}><label>タイトルで検索<div><input aria-label="YouTubeタイトル検索" value={props.searchQuery} placeholder="曲名 アーティスト" onChange={(event) => props.setSearchQuery(event.target.value)} /><button type="submit" disabled={props.searching || !props.serviceStatus?.youtubeSearchConfigured}>{props.searching ? '検索中' : '検索'}</button></div></label></form>
-              {props.serviceStatus && !props.serviceStatus.youtubeSearchConfigured && <p className="setup-note">タイトル検索にはローカル版の <code>YOUTUBE_API_KEY</code> 設定が必要です。URL貼付はそのまま使えます。</p>}
-              {props.searchResults.length > 0 && <div className="youtube-results">{props.searchResults.map((result) => <button type="button" key={result.videoId} onClick={() => props.chooseSearchResult(result)}><img src={result.thumbnailUrl} alt="" /><span><strong>{result.title}</strong><small>{result.channelTitle}</small></span></button>)}</div>}
+              <form onSubmit={(event) => { event.preventDefault(); props.performSearch(); }}><label>タイトルでコード検索<div><input aria-label="タイトルでコード検索" value={props.searchQuery} placeholder="曲名 アーティスト" onChange={(event) => props.setSearchQuery(event.target.value)} /><button type="submit" disabled={props.searching || !props.searchQuery.trim()}>{props.searching ? '検索中' : '検索'}</button></div></label></form>
+              <p className="setup-note songle-credit">候補を選ぶと、YouTube動画とコード時刻を自動で読み込んで練習を開始します。解析結果提供：<a href="https://songle.jp/" target="_blank" rel="noreferrer">Songle ↗</a></p>
+              {props.searchResults.length > 0 && <div className="youtube-results songle-results">{props.searchResults.map((result) => <button type="button" key={result.id} disabled={props.importingSongId !== null} onClick={() => props.chooseSearchResult(result)}><img src={result.thumbnailUrl} alt="" /><span><strong>{result.title}</strong><small>{result.artist} · {formatDuration(result.duration)}</small></span><b>{props.importingSongId === result.id ? 'コード読込中…' : '選んで開始 →'}</b></button>)}</div>}
             </div>
           )}
         </section>
@@ -725,6 +772,12 @@ function consecutiveHits(segments: readonly ChordSegment[], currentIndex: number
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
   const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '時間不明';
+  const whole = Math.round(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
 
