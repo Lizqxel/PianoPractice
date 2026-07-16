@@ -32,6 +32,29 @@ export function chartPreviewLabel(segment: ChordSegment): string {
   return segment.faithful ? chordName(segment.faithful) : 'N.C.';
 }
 
+export function retimeChordSegments(
+  segments: readonly ChordSegment[],
+  starts: readonly number[],
+  mediaDuration = 0,
+): ChordSegment[] {
+  if (segments.length !== starts.length) throw new Error('すべてのコードに時刻を付けてください。');
+  if (segments.length === 0) return [];
+  starts.forEach((start, index) => {
+    if (!Number.isFinite(start) || start < 0) throw new Error('同期時刻を読み取れませんでした。');
+    if (index > 0 && start <= starts[index - 1]!) throw new Error('コードの時刻は前から順番に指定してください。');
+  });
+
+  const last = segments.at(-1)!;
+  const fallbackTail = Math.max(0.25, last.end - last.start);
+  return segments.map((segment, index) => ({
+    ...segment,
+    start: starts[index]!,
+    end: index + 1 < starts.length
+      ? starts[index + 1]!
+      : Math.max(starts[index]! + fallbackTail, mediaDuration),
+  }));
+}
+
 function buildTimestampChart(lines: readonly string[], bpm: number, beatsPerBar: number): TimedChordChartResult {
   const invalidTokens: string[] = [];
   const events: { start: number; cell: ChartCell }[] = [];

@@ -84,8 +84,9 @@ describe('曲で弾くセットアップ', () => {
       return new Response('not found', { status: 404 });
     });
 
-    render(<SongPracticeMode notes={[]} splitNote={60} onGuideChange={vi.fn()} onAllNotesOff={vi.fn()} />);
+    render(<SongPracticeMode notes={[60, 64, 67]} splitNote={60} onGuideChange={vi.fn()} onAllNotesOff={vi.fn()} midiConnected midiDeviceName="Test MIDI" />);
     fireEvent.change(screen.getByLabelText('タイトルでコード検索'), { target: { value: 'Automatic Song' } });
+    expect(screen.getByRole('link', { name: /U-FRETでコード譜を確認/ })).toHaveAttribute('href', expect.stringContaining('search.php?key='));
     fireEvent.click(screen.getByRole('button', { name: '検索' }));
     const candidate = await screen.findByRole('button', { name: /Automatic Song.*選んで開始/ });
     fireEvent.click(candidate);
@@ -93,5 +94,22 @@ describe('曲で弾くセットアップ', () => {
     expect(screen.getByRole('link', { name: /参照元.*Songle/ })).toHaveAttribute('href', 'https://songle.jp/songs/test');
     expect(screen.getByRole('region', { name: '曲のコード譜' })).toHaveTextContent('C');
     expect(screen.getByRole('region', { name: '曲のコード譜' })).toHaveTextContent('G');
+    expect(screen.getByLabelText('動画追従コード列')).toHaveTextContent('C');
+    expect(screen.getByRole('region', { name: '動画とコード譜の自動同期' })).toHaveTextContent('コード時刻の手入力は不要');
+    expect(screen.getByText('MIDI CHECK')).toBeInTheDocument();
+    expect(screen.getByText('✓ MIDI MATCH')).toBeInTheDocument();
+    expect(screen.getByText('Test MIDI')).toBeInTheDocument();
+  });
+
+  it('U-FRET検索結果から手入力なしでコードを転記して開始する', async () => {
+    render(<SongPracticeMode notes={[]} splitNote={60} onGuideChange={vi.fn()} onAllNotesOff={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('タイトルでコード検索'), { target: { value: '常夜燈 PEOPLE1' } });
+    fireEvent.click(screen.getByRole('button', { name: '検索' }));
+    const importButton = await screen.findByRole('button', { name: /常夜燈.*取り込んで開始/ });
+    fireEvent.click(importButton);
+    expect(await screen.findByRole('heading', { name: '常夜燈' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /参照元.*U-FRET/ })).toHaveAttribute('href', 'https://www.ufret.jp/song.php?data=71624');
+    expect(screen.getByLabelText('動画追従コード列')).toHaveTextContent('Bb');
+    expect(screen.getByLabelText('動画追従コード列')).toHaveTextContent('Am7♭5');
   });
 });

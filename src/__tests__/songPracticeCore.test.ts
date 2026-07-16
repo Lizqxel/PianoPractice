@@ -2,9 +2,11 @@ import { Midi } from '@tonejs/midi';
 import { describe, expect, it, vi } from 'vitest';
 import { analysisTimeForPlayback, analyzeSongChords, findChordSegmentIndex, simplifySongChord } from '../music/songChordAnalysis';
 import { parseSongMidi } from '../music/songMidi';
-import { buildTimedChordChart } from '../music/timedChordChart';
+import { buildTimedChordChart, retimeChordSegments } from '../music/timedChordChart';
+import { alignUfretChartToSongle, buildUfretVideoPlusChart } from '../music/ufretTiming';
 import { createChordSourceSearchLinks } from '../services/chordSources';
 import { transcribeAudio, validateTranscriptionFile } from '../services/transcriptionClient';
+import { loadUfretChordChart, normalizeUfretSongUrl } from '../services/ufret';
 import { parseYouTubeVideoId } from '../services/youtube';
 import type { ChordQuality, SongNote, SongTrack } from '../types';
 
@@ -25,7 +27,7 @@ describe('YouTube URL解析', () => {
 
 describe('コード簡略化', () => {
   it.each<[ChordQuality, ChordQuality]>([
-    ['major', 'major'], ['minor', 'minor'], ['dim', 'dim'], ['aug', 'major'], ['sus2', 'sus2'], ['sus4', 'sus4'],
+    ['major', 'major'], ['minor', 'minor'], ['dim', 'dim'], ['m7b5', 'dim'], ['aug', 'major'], ['sus2', 'sus2'], ['sus4', 'sus4'],
     ['6', 'major'], ['m6', 'minor'], ['7', 'major'], ['maj7', 'major'], ['m7', 'minor'], ['mMaj7', 'minor'], ['add9', 'major'],
   ])('%sを%sへ変換する', (quality, expected) => {
     expect(simplifySongChord({ root: 0, quality, bass: 4 })).toEqual({ root: 0, quality: expected });
@@ -60,6 +62,24 @@ describe('手入力コード譜', () => {
   it('未対応コードをエラー候補として返す', () => {
     expect(buildTimedChordChart('C | H7 | G', 100).invalidTokens).toEqual(['H7']);
   });
+
+  it('動画を見ながら打った時刻で全コードを並べ直す', () => {
+    const source = buildTimedChordChart('C | G | Am | F', 120, 4).segments;
+    const synced = retimeChordSegments(source, [3.2, 5.8, 9.1, 12.4], 18);
+    expect(synced.map((segment) => [segment.start, segment.end])).toEqual([
+      [3.2, 5.8],
+      [5.8, 9.1],
+      [9.1, 12.4],
+      [12.4, 18],
+    ]);
+    expect(synced.map((segment) => segment.faithful)).toEqual(source.map((segment) => segment.faithful));
+  });
+
+  it('タップ同期は時刻の逆行と不足を拒否する', () => {
+    const source = buildTimedChordChart('C | G', 120, 4).segments;
+    expect(() => retimeChordSegments(source, [2])).toThrow('すべてのコード');
+    expect(() => retimeChordSegments(source, [2, 1])).toThrow('前から順番');
+  });
 });
 
 describe('外部コード譜検索', () => {
@@ -67,6 +87,44 @@ describe('外部コード譜検索', () => {
     const links = createChordSourceSearchLinks('鈴々 PEOPLE 1');
     expect(links.map((link) => link.label)).toEqual(['U-FRET', 'ChordWiki', '楽器.me', 'J-Total Music', 'UTABON']);
     expect(links[0]?.url).toContain('https://www.ufret.jp/search.php?key=');
+  });
+
+  it('U-FRET曲URLからコード記号を直接取り込む', async () => {
+    const imported = await loadUfretChordChart('https://ufret.jp/song.php?data=69641#content');
+    const chart = buildUfretVideoPlusChart(imported, 'OZpv_AcPCKg');
+    expect(imported).toMatchObject({ title: '常夜燈', artist: 'PEOPLE1', chordCount: 202, bpm: 99 });
+    expect(chart?.invalidTokens).toEqual([]);
+    expect(chart?.segments).toHaveLength(202);
+    expect(chart?.segments[0]?.start).toBeCloseTo(2.675, 3);
+    expect(chart?.segments[1]?.start).toBeCloseTo(4.493, 3);
+    expect(chart?.segments[2]?.start).toBeCloseTo(5.099, 3);
+    expect(chart?.segments.at(-1)?.start).toBeCloseTo(262.675, 3);
+    expect(chart?.segments.some((segment) => segment.faithful?.quality === 'm7b5')).toBe(true);
+  });
+
+  it('動画プラス未対応時はSongle実時間へU-FRETコード列を自動整列する', () => {
+    const imported = {
+      title: 'Test', artist: 'Artist', url: 'https://www.ufret.jp/song.php?data=1', version: '通常ver',
+      chartText: 'C | G | Am | F', bpm: 100, chordCount: 4,
+    };
+    const reference = {
+      segments: [
+        segment(3, 6, 0, 'major'), segment(6, 9, 7, '7'),
+        segment(9, 12, 9, 'm7'), segment(12, 16, 5, 'major'),
+      ],
+      duration: 18,
+      unsupportedNames: [],
+      beats: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    };
+    const chart = alignUfretChartToSongle(imported, reference);
+    expect(chart.timingSource).toBe('songle-alignment');
+    expect(chart.anchorCount).toBe(4);
+    expect(chart.segments.map((item) => item.start)).toEqual([3, 6, 9, 12]);
+    expect(chart.segments.at(-1)?.end).toBe(18);
+  });
+
+  it('U-FRET以外のURLは取り込まない', () => {
+    expect(() => normalizeUfretSongUrl('https://example.com/song.php?data=69641')).toThrow('U-FRET');
   });
 });
 
@@ -136,6 +194,7 @@ describe('MIDI正規化とコード解析', () => {
     expect(findChordSegmentIndex(segments, analysisTimeForPlayback(2.4, 0.5))).toBe(0);
     expect(findChordSegmentIndex(segments, analysisTimeForPlayback(2.6, 0.5))).toBe(1);
     expect(findChordSegmentIndex(segments, analysisTimeForPlayback(2.6, -0.5))).toBe(1);
+    expect(findChordSegmentIndex([{ ...segments[0]!, start: 2, end: 4 }], 1.9)).toBe(-1);
   });
 });
 
@@ -175,4 +234,14 @@ function chordNotes(pitches: number[], start: number, end: number): SongNote[] {
     trackId: 'track-0',
     instrument: 'acoustic piano',
   }));
+}
+
+function segment(start: number, end: number, root: number, quality: ChordQuality) {
+  return {
+    start,
+    end,
+    faithful: { root: root as 0, quality },
+    simple: { root: root as 0, quality: quality === '7' ? 'major' as const : quality === 'm7' ? 'minor' as const : quality },
+    confidence: 1,
+  };
 }

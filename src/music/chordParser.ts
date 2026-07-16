@@ -3,7 +3,7 @@ import type { ChordQuality, ChordTarget } from '../types';
 
 export function parseChordSymbol(symbol: string): ChordTarget | null {
   const cleaned = symbol.trim().replaceAll('♭', 'b').replaceAll('♯', '#');
-  const match = /^([A-G](?:#|b)?)(mMaj7|mM7|maj7|M7|m7|sus2|sus4|add9|dim|aug|m6|m|6|7)?(?:\/([A-G](?:#|b)?))?$/.exec(cleaned);
+  const match = /^([A-G](?:#|b)?)(mMaj7|mM7|m7-5|m7b5|maj7|M7|m7|sus2|sus4|add9|dim|aug|m6|m|6|7)?(?:\/([A-G](?:#|b)?))?$/.exec(cleaned);
   if (!match) return null;
   const rootName = match[1]!;
   const suffix = match[2] ?? '';
@@ -13,6 +13,8 @@ export function parseChordSymbol(symbol: string): ChordTarget | null {
       ? 'minor'
       : suffix === 'M7'
         ? 'maj7'
+        : suffix === 'm7-5'
+          ? 'm7b5'
         : suffix === 'mM7'
           ? 'mMaj7'
           : suffix as ChordQuality;

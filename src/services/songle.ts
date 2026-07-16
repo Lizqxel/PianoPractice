@@ -30,6 +30,7 @@ export interface SongleChordChart {
   segments: ChordSegment[];
   duration: number;
   unsupportedNames: string[];
+  beats: number[];
 }
 
 export async function searchSongleSongs(query: string, signal?: AbortSignal): Promise<SongleSearchResult[]> {
@@ -60,7 +61,15 @@ export async function searchSongleSongs(query: string, signal?: AbortSignal): Pr
 }
 
 export async function loadSongleChordChart(song: SongleSearchResult, signal?: AbortSignal): Promise<SongleChordChart> {
-  const sourceUrl = `www.youtube.com/watch?v=${song.videoId}`;
+  return loadSongleChordData(song.videoId, song.duration, signal);
+}
+
+export async function loadSongleChordChartForVideo(videoId: string, signal?: AbortSignal): Promise<SongleChordChart> {
+  return loadSongleChordData(videoId, 0, signal);
+}
+
+async function loadSongleChordData(videoId: string, knownDuration: number, signal?: AbortSignal): Promise<SongleChordChart> {
+  const sourceUrl = `www.youtube.com/watch?v=${videoId}`;
   const request = (path: 'chord' | 'beat') => fetch(
     `${SONGLE_API}/song/${path}.json?url=${encodeURIComponent(sourceUrl)}`,
     { headers: { Accept: 'application/json' }, ...(signal ? { signal } : {}) },
@@ -95,8 +104,9 @@ export async function loadSongleChordChart(song: SongleSearchResult, signal?: Ab
   }
   return {
     segments,
-    duration: Math.max(song.duration, segments.at(-1)?.end ?? 0),
+    duration: Math.max(knownDuration, segments.at(-1)?.end ?? 0),
     unsupportedNames: [...unsupported],
+    beats: beats.flatMap((beat) => Number.isFinite(Number(beat.start)) ? [Number(beat.start) / 1000] : []),
   };
 }
 

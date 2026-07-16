@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LocalAudioPlayer } from '../components/LocalAudioPlayer';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { analyzeChord, analyzeHands } from '../music/chordMatcher';
-import { chordName, chordPitchClasses, keyPrefersFlats, toPitchClass } from '../music/chordDefinitions';
+import { chordName, chordPitchClasses, keyPrefersFlats, midiNoteName, pitchClassNameForTarget, toPitchClass } from '../music/chordDefinitions';
 import { analysisTimeForPlayback, analyzeSongChords, chordForDetail, findChordSegmentIndex } from '../music/songChordAnalysis';
 import { parseSongMidi, setSongTrackEnabled } from '../music/songMidi';
 import { buildTimedChordChart, chartPreviewLabel } from '../music/timedChordChart';
+import { alignUfretChartToSongle, buildUfretVideoPlusChart } from '../music/ufretTiming';
 import { bestInversion, fingeringMap, recommendedBassNote } from '../music/voicings';
 import { createChordSourceSearchLinks } from '../services/chordSources';
-import { loadSongleChordChart, searchSongleSongs } from '../services/songle';
+import { loadSongleChordChart, loadSongleChordChartForVideo, searchSongleSongs } from '../services/songle';
 import { getLocalServiceStatus, transcribeAudio, validateTranscriptionFile } from '../services/transcriptionClient';
+import { loadUfretChordChart, searchUfretSongs } from '../services/ufret';
 import { parseYouTubeVideoId } from '../services/youtube';
 import { emptyKeyboardGuide } from './GuidedChordLearningMode';
 import type {
@@ -26,12 +28,15 @@ import type {
   SongProject,
   SongTrack,
 } from '../types';
+import type { UfretSearchResult } from '../services/ufret';
 
 interface Props {
   notes: readonly number[];
   splitNote: number;
   onGuideChange: (guide: KeyboardGuideState) => void;
   onAllNotesOff: () => void;
+  midiConnected?: boolean;
+  midiDeviceName?: string;
 }
 
 type SourceKind = 'local' | 'youtube';
@@ -44,7 +49,7 @@ const RATE_KEY = 'chord-sprint:song-rate:v1';
 const OFFSET_KEY = 'chord-sprint:song-offset:v1';
 const RATE_OPTIONS = [0.5, 0.75, 1, 1.25] as const;
 
-export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOff }: Props) {
+export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOff, midiConnected = false, midiDeviceName = '' }: Props) {
   const [phase, setPhase] = useState<Phase>('setup');
   const [sourceKind, setSourceKind] = useState<SourceKind>('youtube');
   const [analysisKind, setAnalysisKind] = useState<AnalysisKind>('chart');
@@ -56,8 +61,10 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
   const [youtubeSource, setYoutubeSource] = useState<Extract<PlaybackSource, { kind: 'youtube' }> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SongleSearchResult[]>([]);
+  const [ufretSearchResults, setUfretSearchResults] = useState<UfretSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [importingSongId, setImportingSongId] = useState<number | null>(null);
+  const [importingUfretUrl, setImportingUfretUrl] = useState<string | null>(null);
   const [chordQuery, setChordQuery] = useState('');
   const [chartText, setChartText] = useState('');
   const [chartBpm, setChartBpm] = useState(100);
@@ -179,14 +186,20 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
   }, [detail, project]);
 
   const performance = useMemo(() => {
-    if (!currentTarget) return { exact: false, extraCount: 0 };
+    if (!currentTarget) return { exact: false, extraCount: 0, missing: [], extra: [], bassMessage: null };
     if (handMode === 'both') {
       const withBass = { ...currentTarget, bass: currentTarget.bass ?? currentTarget.root };
       const result = analyzeHands(withBass, notes, splitNote);
-      return { exact: result.isExact, extraCount: result.rightHand.extra.length + (result.bassCorrect ? 0 : 1) };
+      return {
+        exact: result.isExact,
+        extraCount: result.rightHand.extra.length + (result.bassCorrect || result.leftBass === null ? 0 : 1),
+        missing: result.rightHand.missing,
+        extra: result.rightHand.extra,
+        bassMessage: result.bassMessage,
+      };
     }
     const result = analyzeChord(currentTarget, notes);
-    return { exact: result.isExact, extraCount: result.extra.length };
+    return { exact: result.isExact, extraCount: result.extra.length, missing: result.missing, extra: result.extra, bassMessage: null };
   }, [currentTarget, handMode, notes, splitNote]);
 
   useEffect(() => {
@@ -251,9 +264,18 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
     setSearching(true);
     setError(null);
     try {
-      const results = await searchSongleSongs(query);
-      setSearchResults(results);
-      if (results.length === 0) setError('コード付きのYouTube候補が見つかりませんでした。曲名とアーティスト名を変えてお試しください。');
+      const [songleResult, ufretResult] = await Promise.allSettled([
+        searchSongleSongs(query),
+        searchUfretSongs(query),
+      ]);
+      const songleItems = songleResult.status === 'fulfilled' ? songleResult.value : [];
+      const ufretItems = ufretResult.status === 'fulfilled' ? ufretResult.value : [];
+      setSearchResults(songleItems);
+      setUfretSearchResults(ufretItems);
+      if (songleItems.length === 0 && ufretItems.length === 0) {
+        const failure = songleResult.status === 'rejected' ? songleResult.reason : null;
+        setError(failure instanceof Error ? failure.message : 'コード譜の候補が見つかりませんでした。曲名とアーティスト名を変えてお試しください。');
+      }
     }
     catch (searchError) { setError(searchError instanceof Error ? searchError.message : '曲の検索に失敗しました。'); }
     finally { setSearching(false); }
@@ -291,6 +313,62 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
       setError(importError instanceof Error ? importError.message : 'コード譜の取得に失敗しました。');
     } finally {
       setImportingSongId(null);
+    }
+  };
+
+  const chooseUfretResult = async (result: UfretSearchResult) => {
+    setImportingUfretUrl(result.url);
+    setError(null);
+    try {
+      const imported = await loadUfretChordChart(result.url);
+      const parsedChart = buildTimedChordChart(imported.chartText, imported.bpm, 4);
+      if (parsedChart.invalidTokens.length > 0 || parsedChart.segments.length === 0) {
+        throw new Error(`読み取れないU-FRETコードがあります: ${parsedChart.invalidTokens.join('、')}`);
+      }
+      const importedYoutube = imported.youtubeVideoId ? {
+        kind: 'youtube' as const,
+        videoId: imported.youtubeVideoId,
+        title: imported.title,
+        channelTitle: imported.artist,
+      } : null;
+      const playback: PlaybackSource | null = sourceKind === 'local' && localAudio && localAudioUrl
+        ? { kind: 'local', name: localAudio.name, url: localAudioUrl }
+        : youtubeSource ?? importedYoutube;
+      if (!playback) throw new Error('先に同期させるYouTube動画を選んでください。');
+      if (playback.kind !== 'youtube') {
+        throw new Error('U-FRETコード譜の自動同期にはYouTube動画を選んでください。手元音源は「AI解析」から自動解析できます。');
+      }
+
+      let chart = buildUfretVideoPlusChart(imported, playback.videoId);
+      let timingLabel = 'U-FRET 動画プラス';
+      if (!chart) {
+        const songleReference = await loadSongleChordChartForVideo(playback.videoId);
+        chart = alignUfretChartToSongle(imported, songleReference);
+        timingLabel = 'U-FRET＋Songle同期';
+      }
+
+      setAnalysisKind('chart');
+      setChartText(imported.chartText);
+      setChartBpm(imported.bpm);
+      setChartBeatsPerBar(4);
+      setChartSourceUrl(imported.url);
+      setChordQuery(`${imported.title} ${imported.artist}`);
+      setDetail('faithful');
+      setSourceKind('youtube');
+      setYoutubeSource(playback);
+      setYoutubeInput(`https://www.youtube.com/watch?v=${playback.videoId}`);
+      openPractice({
+        title: imported.title,
+        playback,
+        tracks: [],
+        chords: chart.segments,
+        duration: chart.duration,
+        chordSource: { label: timingLabel, url: imported.timing?.sourceUrl ?? imported.url },
+      });
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : 'U-FRETコード譜の取り込みに失敗しました。');
+    } finally {
+      setImportingUfretUrl(null);
     }
   };
 
@@ -429,12 +507,16 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
         youtubeSource={youtubeSource}
         chooseYouTubeFromInput={chooseYouTubeFromInput}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        setSearchQuery={(value) => { setSearchQuery(value); setChordQuery(value); }}
         performSearch={() => void performSearch()}
         searching={searching}
         importingSongId={importingSongId}
         searchResults={searchResults}
         chooseSearchResult={(result) => void chooseSongleResult(result)}
+        ufretSearchResults={ufretSearchResults}
+        importingUfretUrl={importingUfretUrl}
+        chooseUfretResult={(result) => void chooseUfretResult(result)}
+        importUfretUrl={() => void chooseUfretResult({ title: '', artist: '', version: '', url: chartSourceUrl })}
         chordQuery={chordQuery}
         setChordQuery={setChordQuery}
         chordSourceLinks={chordSourceLinks}
@@ -476,6 +558,26 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
   const elapsedSuccesses = elapsedIndexes.filter((index) => hitsRef.current.has(index)).length;
   const accuracy = elapsedIndexes.length > 0 ? Math.round((elapsedSuccesses / elapsedIndexes.length) * 100) : 0;
   const streak = consecutiveHits(project.chords, currentIndex, hitsRef.current, detail);
+  const expectedNoteLabels = currentTarget
+    ? chordPitchClasses(currentTarget).map((pitch) => pitchClassNameForTarget(pitch, currentTarget))
+    : [];
+  const playedNoteLabels = notes.map(midiNoteName);
+  const midiFeedbackParts = currentTarget ? [
+    performance.missing.length > 0
+      ? `不足 ${performance.missing.map((pitch) => pitchClassNameForTarget(pitch, currentTarget)).join('・')}`
+      : '',
+    performance.extra.length > 0
+      ? `余分 ${performance.extra.map((pitch) => pitchClassNameForTarget(pitch, currentTarget)).join('・')}`
+      : '',
+    performance.bassMessage ?? '',
+  ].filter(Boolean) : [];
+  const midiProofMessage = !currentTarget
+    ? 'コード区間を待っています'
+    : performance.exact
+      ? '入力音がコードと一致'
+      : notes.length === 0
+        ? '鍵盤でコードを弾くと判定します'
+        : midiFeedbackParts.join(' / ') || '押さえ方を確認してください';
 
   return (
     <div className="song-practice-page" data-testid="song-practice-mode">
@@ -510,11 +612,16 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
         </section>
 
         <section className={`song-chord-stage ${currentHit ? 'correct' : ''}`}>
-          <div className="song-chord-meta"><span>{currentSegment ? `${formatTime(currentSegment.start)} – ${formatTime(currentSegment.end)}` : '準備中'}</span><span>{currentHit ? 'この区間は成功' : performance.extraCount > 0 ? `余分な音 ${performance.extraCount}` : '原曲に重ねて弾く'}</span></div>
+          <div className="song-chord-meta"><span>{currentSegment ? `${formatTime(currentSegment.start)} – ${formatTime(currentSegment.end)}` : '準備中'}</span><span>{currentHit ? 'MIDIで確認済み' : performance.extraCount > 0 ? `余分な音 ${performance.extraCount}` : '原曲に重ねて弾く'}</span></div>
           <div className="song-chord-queue">
-            <div className="song-current-chord"><span>現在</span><strong>{currentTarget ? chordName(currentTarget) : 'N.C.'}</strong><small>{currentHit ? '✓ GOOD' : handMode === 'both' ? '右手コード＋左手ベース' : '右手コード'}</small></div>
+            <div className="song-current-chord"><span>現在</span><strong>{currentTarget ? chordName(currentTarget) : 'N.C.'}</strong><small>{performance.exact ? '✓ MIDI MATCH' : handMode === 'both' ? '右手コード＋左手ベース' : '右手コード'}</small></div>
             <div><span>次</span><strong>{segmentName(nextSegment, detail)}</strong></div>
             <div><span>その次</span><strong>{segmentName(afterNextSegment, detail)}</strong></div>
+          </div>
+          <div className={`song-midi-proof ${performance.exact ? 'correct' : notes.length > 0 ? 'mismatch' : ''}`} aria-live="polite">
+            <div className="song-midi-proof-head"><span><i /> MIDI CHECK</span><strong>{midiConnected ? midiDeviceName || 'MIDIキーボード接続中' : '画面鍵盤でも確認可能'}</strong></div>
+            <div className="song-midi-note-grid"><span>必要音 <b>{expectedNoteLabels.join(' · ') || '—'}</b></span><span>入力音 <b>{playedNoteLabels.join(' · ') || '—'}</b></span></div>
+            <p>{midiProofMessage}</p>
           </div>
           <div className="song-segment-progress"><i style={{ transform: `scaleX(${segmentProgress})` }} /></div>
           <div className="song-score-strip"><div><span>成功</span><strong>{successCount}</strong></div><div><span>正確さ</span><strong>{accuracy}%</strong></div><div><span>連続</span><strong>{streak}</strong></div></div>
@@ -529,6 +636,10 @@ export function SongPracticeMode({ notes, splitNote, onGuideChange, onAllNotesOf
         onSeek={(time) => seek(time + syncOffset)}
         source={project.chordSource}
       />
+
+      <section className="tap-sync-panel active" aria-label="動画とコード譜の自動同期">
+        <div className="tap-sync-copy"><span className="mode-kicker">AUTO SYNC</span><strong>動画の実時間と同期済み</strong><p>{project.chordSource?.label.includes('Songle') ? '選択したYouTubeのSongle解析時刻へU-FRETコード列を自動整列しました。' : 'U-FRET動画プラスの拍マップをそのまま取り込みました。'} コード時刻の手入力は不要です。</p></div>
+      </section>
 
       <section className="song-practice-settings">
         <div><span>コード</span><div className="segmented"><button type="button" className={detail === 'simple' ? 'active' : ''} onClick={() => setDetail('simple')}>簡単</button><button type="button" className={detail === 'faithful' ? 'active' : ''} onClick={() => setDetail('faithful')}>原曲寄り</button></div></div>
@@ -559,6 +670,10 @@ interface SetupProps {
   importingSongId: number | null;
   searchResults: readonly SongleSearchResult[];
   chooseSearchResult: (result: SongleSearchResult) => void;
+  ufretSearchResults: readonly UfretSearchResult[];
+  importingUfretUrl: string | null;
+  chooseUfretResult: (result: UfretSearchResult) => void;
+  importUfretUrl: () => void;
   chordQuery: string;
   setChordQuery: (value: string) => void;
   chordSourceLinks: ReturnType<typeof createChordSourceSearchLinks>;
@@ -597,6 +712,7 @@ function SongSetup(props: SetupProps) {
       ? props.sourceKind === 'local' ? Boolean(props.localAudio) : Boolean(props.analysisAudio)
       : Boolean(props.midiFile);
   const progressRatio = props.progress.total > 0 ? props.progress.completed / props.progress.total : 0;
+  const ufretSearch = createChordSourceSearchLinks(props.searchQuery).find((source) => source.id === 'ufret');
   return (
     <div className="song-setup-page" data-testid="song-practice-setup">
       <header className="song-setup-header"><span className="mode-kicker">PLAY WITH A SONG</span><h2>好きな曲を、コード練習に。</h2><p>原曲を再生しながら、コード譜・現在のコード・鍵盤の押さえ方を同じ画面で追いかけます。</p></header>
@@ -612,26 +728,28 @@ function SongSetup(props: SetupProps) {
               <label>URLを貼る<div><input aria-label="YouTube URL" value={props.youtubeInput} placeholder="https://www.youtube.com/watch?v=..." onChange={(event) => props.setYoutubeInput(event.target.value)} /><button type="button" onClick={props.chooseYouTubeFromInput}>選択</button></div></label>
               {props.youtubeSource && <div className="selected-youtube"><span>選択中</span><strong>{props.youtubeSource.title}</strong><small>{props.youtubeSource.videoId}</small></div>}
               <form onSubmit={(event) => { event.preventDefault(); props.performSearch(); }}><label>タイトルでコード検索<div><input aria-label="タイトルでコード検索" value={props.searchQuery} placeholder="曲名 アーティスト" onChange={(event) => props.setSearchQuery(event.target.value)} /><button type="submit" disabled={props.searching || !props.searchQuery.trim()}>{props.searching ? '検索中' : '検索'}</button></div></label></form>
+              {ufretSearch && <a className="ufret-search-shortcut" href={ufretSearch.url} target="_blank" rel="noreferrer"><span>U-FRETでコード譜を確認</span><strong>{props.searchQuery}</strong><b>検索結果を開く ↗</b></a>}
               <p className="setup-note songle-credit">候補を選ぶと、YouTube動画とコード時刻を自動で読み込んで練習を開始します。解析結果提供：<a href="https://songle.jp/" target="_blank" rel="noreferrer">Songle ↗</a></p>
+              {props.ufretSearchResults.length > 0 && <div className="ufret-import-results"><div className="ufret-results-heading"><span>U-FRET コード譜</span><small>コード記号を自動転記</small></div>{props.ufretSearchResults.map((result) => <button type="button" key={result.url} disabled={props.importingUfretUrl !== null} onClick={() => props.chooseUfretResult(result)}><span><strong>{result.title}</strong><small>{result.artist} · {result.version}</small></span><b>{props.importingUfretUrl === result.url ? '転記中…' : '取り込んで開始 →'}</b></button>)}</div>}
               {props.searchResults.length > 0 && <div className="youtube-results songle-results">{props.searchResults.map((result) => <button type="button" key={result.id} disabled={props.importingSongId !== null} onClick={() => props.chooseSearchResult(result)}><img src={result.thumbnailUrl} alt="" /><span><strong>{result.title}</strong><small>{result.artist} · {formatDuration(result.duration)}</small></span><b>{props.importingSongId === result.id ? 'コード読込中…' : '選んで開始 →'}</b></button>)}</div>}
             </div>
           )}
         </section>
 
         <section className="song-setup-card">
-          <div className="setup-step"><b>2</b><div><span>コード譜を用意</span><small>既存コード譜を探すか、AI／MIDIを補助的に使用</small></div></div>
+          <div className="setup-step"><b>2</b><div><span>コード譜を取り込む</span><small>U-FRETの検索結果／曲URLからコード記号を直接転記</small></div></div>
           <div className="source-tabs three"><button type="button" className={props.analysisKind === 'chart' ? 'active' : ''} onClick={() => props.setAnalysisKind('chart')}>コード譜</button><button type="button" className={props.analysisKind === 'audio' ? 'active' : ''} onClick={() => props.setAnalysisKind('audio')}>AI解析</button><button type="button" className={props.analysisKind === 'midi' ? 'active' : ''} onClick={() => props.setAnalysisKind('midi')}>MIDI</button></div>
           {props.analysisKind === 'chart' ? (
             <div className="chart-setup">
               <label className="chart-field">曲名・アーティスト名<input aria-label="コード譜サイト検索" value={props.chordQuery} placeholder="曲名 アーティスト" onChange={(event) => props.setChordQuery(event.target.value)} /></label>
-              {props.chordSourceLinks.length > 0 && <div className="chord-source-links">{props.chordSourceLinks.map((source) => <a key={source.id} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><small>{source.description}</small><span>探す ↗</span></a>)}</div>}
-              <p className="setup-note">外部サイトは別タブで開きます。歌詞・楽譜は自動複製せず、利用できるコード記号だけを下へ入力します。</p>
-              <label className="chart-field">コード進行<textarea aria-label="曲のコード譜" value={props.chartText} placeholder={'G#m | C#m | F# | B\n\n時刻を指定する場合:\n[0:12.5] G#m\n[0:16.8] C#m'} onChange={(event) => props.setChartText(event.target.value)} /></label>
+              {props.chordSourceLinks.length > 0 && <div className="chord-source-links">{props.chordSourceLinks.map((source) => <a className={source.id === 'ufret' ? 'primary-source' : ''} key={source.id} href={source.url} target="_blank" rel="noreferrer"><strong>{source.label}</strong><small>{source.description}</small><span>探す ↗</span></a>)}</div>}
+              <p className="setup-note">検索候補の「取り込んで開始」または曲ページURLの「コードを転記」を使います。歌詞は持ち込まず、コード記号・並び・参照元だけを保存します。</p>
+              <label className="chart-field">取り込んだコード進行（確認・微調整）<textarea aria-label="曲のコード譜" value={props.chartText} placeholder="U-FRETの検索候補または曲URLから自動転記されます" onChange={(event) => props.setChartText(event.target.value)} /></label>
               <div className="chart-timing-fields">
                 <label>BPM<input aria-label="コード譜BPM" type="number" min="30" max="300" value={props.chartBpm} onChange={(event) => props.setChartBpm(Number(event.target.value))} /></label>
                 <label>1小節の拍数<input aria-label="1小節の拍数" type="number" min="1" max="12" value={props.chartBeatsPerBar} onChange={(event) => props.setChartBeatsPerBar(Number(event.target.value))} /></label>
               </div>
-              <label className="chart-field">参照したコード譜URL（任意）<input aria-label="参照コード譜URL" type="url" value={props.chartSourceUrl} placeholder="https://www.ufret.jp/song.php?..." onChange={(event) => props.setChartSourceUrl(event.target.value)} /></label>
+              <label className="chart-field">U-FRET曲ページURL<div className="ufret-url-import"><input aria-label="参照コード譜URL" type="url" value={props.chartSourceUrl} placeholder="https://www.ufret.jp/song.php?data=..." onChange={(event) => props.setChartSourceUrl(event.target.value)} /><button type="button" disabled={!props.chartSourceUrl.trim() || props.importingUfretUrl !== null} onClick={props.importUfretUrl}>{props.importingUfretUrl ? '転記中…' : 'コードを転記'}</button></div></label>
               {props.chartResult.invalidTokens.length > 0 && <p className="chart-parse-error">読めないコード: {props.chartResult.invalidTokens.join('、')}</p>}
               {props.chartResult.segments.length > 0 && <div className="chart-mini-preview" aria-label="コード譜プレビュー">{props.chartResult.segments.slice(0, 16).map((segment, index) => <span key={`${segment.start}-${index}`}><small>{segment.measure}</small><strong>{chartPreviewLabel(segment)}</strong></span>)}</div>}
               <button className="button primary song-analyze-button" type="button" disabled={!sourceReady || !analysisReady} onClick={props.startPractice}>このコード譜で練習を始める →</button>
@@ -666,11 +784,11 @@ interface ChordScoreViewProps {
 }
 
 function ChordScoreView({ segments, currentIndex, detail, analysisTime, onSeek, source }: ChordScoreViewProps) {
-  const activeCellRef = useRef<HTMLButtonElement | null>(null);
+  const railActiveRef = useRef<HTMLButtonElement | null>(null);
   const measures = useMemo(() => groupScoreMeasures(segments), [segments]);
 
   useEffect(() => {
-    activeCellRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+    railActiveRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'auto' });
   }, [currentIndex]);
 
   return (
@@ -679,6 +797,33 @@ function ChordScoreView({ segments, currentIndex, detail, analysisTime, onSeek, 
         <div><span className="mode-kicker">FOLLOWING THE VIDEO</span><h3>コード譜</h3><p>動画のシークに追従します。小節を押すと、その位置へ移動します。</p></div>
         {source && <a href={source.url} target="_blank" rel="noreferrer"><span>参照元</span><strong>{source.label}</strong><b>↗</b></a>}
       </div>
+      <div className="song-chord-rail-frame">
+        <span className="song-chord-playhead" aria-hidden="true" />
+        <div className="song-chord-rail" aria-label="動画追従コード列">
+          {segments.map((segment, index) => {
+            const target = chordForDetail(segment, detail);
+            const active = index === currentIndex;
+            const progress = active ? Math.max(0, Math.min(1, (analysisTime - segment.start) / Math.max(0.001, segment.end - segment.start))) : 0;
+            return (
+              <button
+                type="button"
+                key={`rail-${segment.start}-${index}`}
+                ref={active ? railActiveRef : undefined}
+                className={`${active ? 'active' : ''} ${index < currentIndex ? 'past' : ''}`.trim()}
+                aria-current={active ? 'true' : undefined}
+                aria-label={`${segment.measure ?? index + 1}小節 ${target ? chordName(target) : 'N.C.'} ${formatTime(segment.start)}`}
+                onClick={() => onSeek(segment.start)}
+              >
+                <small>M{segment.measure ?? Math.floor(index / 4) + 1}</small>
+                <strong>{target ? chordName(target) : 'N.C.'}</strong>
+                <span>{formatTime(segment.start)}</span>
+                {active && <i style={{ transform: `scaleX(${progress})` }} />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="song-score-overview-head"><span>曲全体</span><small>小節単位でジャンプ</small></div>
       <div className="song-chart-scroll">
         <div className="song-chart-measures">
           {measures.map((measure) => {
@@ -695,7 +840,6 @@ function ChordScoreView({ segments, currentIndex, detail, analysisTime, onSeek, 
                       <button
                         type="button"
                         key={`${segment.start}-${index}`}
-                        ref={active ? activeCellRef : undefined}
                         className={active ? 'active' : ''}
                         aria-current={active ? 'true' : undefined}
                         aria-label={`${measure.number}小節 ${target ? chordName(target) : 'N.C.'} ${formatTime(segment.start)}`}

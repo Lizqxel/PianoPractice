@@ -7,6 +7,7 @@ export const CHORD_DEFINITIONS: Record<ChordQuality, ChordDefinition> = {
   major: { quality: 'major', symbol: '', label: 'メジャー', intervals: [0, 4, 7] },
   minor: { quality: 'minor', symbol: 'm', label: 'マイナー', intervals: [0, 3, 7] },
   dim: { quality: 'dim', symbol: 'dim', label: 'ディミニッシュ', intervals: [0, 3, 6] },
+  m7b5: { quality: 'm7b5', symbol: 'm7♭5', label: 'ハーフディミニッシュ', intervals: [0, 3, 6, 10] },
   aug: { quality: 'aug', symbol: 'aug', label: 'オーギュメント', intervals: [0, 4, 8] },
   sus2: { quality: 'sus2', symbol: 'sus2', label: 'サスツー', intervals: [0, 2, 7] },
   sus4: { quality: 'sus4', symbol: 'sus4', label: 'サスフォー', intervals: [0, 5, 7] },

@@ -21,6 +21,8 @@ export function simplifySongChord(target: ChordTarget | null): ChordTarget | nul
   if (!target) return null;
   const quality: ChordQuality = target.quality === 'm7' || target.quality === 'm6' || target.quality === 'mMaj7'
     ? 'minor'
+    : target.quality === 'm7b5'
+      ? 'dim'
     : target.quality === '7' || target.quality === 'maj7' || target.quality === 'add9' || target.quality === '6' || target.quality === 'aug'
       ? 'major'
       : target.quality;
@@ -79,6 +81,7 @@ export function analyzeSongChords(tracks: readonly SongTrack[], duration: number
 
 export function findChordSegmentIndex(segments: readonly ChordSegment[], time: number): number {
   if (segments.length === 0) return -1;
+  if (time < segments[0]!.start) return -1;
   let low = 0;
   let high = segments.length - 1;
   while (low <= high) {
